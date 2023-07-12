@@ -192,7 +192,7 @@ impl<F: fmt::Debug, const RATE: usize> Absorbing<F, RATE> {
 }
 
 /// A Poseidon sponge.
-pub(crate) struct Sponge<
+pub struct Sponge<
     F: FieldExt,
     S: Spec<F, T, RATE>,
     M: SpongeMode,
