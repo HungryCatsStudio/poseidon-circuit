@@ -1,11 +1,11 @@
 use super::params;
-use halo2_proofs::circuit::{Region, Value};
-//use halo2_proofs::halo2curves::bn256::Fr as F;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{
+use halo2_base::halo2_proofs::circuit::{Region, Value};
+//use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+use halo2_base::halo2_proofs::arithmetic::FieldExt;
+use halo2_base::halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells,
 };
-use halo2_proofs::poly::Rotation;
+use halo2_base::halo2_proofs::poly::Rotation;
 
 /// Cell remembers the relative position of a cell in the region of a permutation.
 /// It can be used in configuration and synthesis.

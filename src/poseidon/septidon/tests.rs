@@ -1,7 +1,7 @@
-use halo2_proofs::circuit::{Layouter, Region, SimpleFloorPlanner, Value};
-use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::bn256::Fr as F;
-use halo2_proofs::plonk::{Circuit, ConstraintSystem, Error};
+use halo2_base::halo2_proofs::circuit::{Layouter, Region, SimpleFloorPlanner, Value};
+use halo2_base::halo2_proofs::dev::MockProver;
+use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+use halo2_base::halo2_proofs::plonk::{Circuit, ConstraintSystem, Error};
 
 use super::{util::join_values, SeptidonChip};
 
@@ -39,7 +39,7 @@ impl Circuit<F> for TestCircuit {
         config: SeptidonChip,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        use halo2_proofs::dev::unwrap_value;
+        use halo2_base::halo2_proofs::dev::unwrap_value;
 
         let num_permutations = self.height / 8;
 

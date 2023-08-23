@@ -5,7 +5,7 @@ use std::fmt;
 use std::iter;
 use std::marker::PhantomData;
 
-use halo2_proofs::arithmetic::FieldExt;
+use halo2_base::halo2_proofs::arithmetic::FieldExt;
 
 //pub(crate) mod fp;
 //pub(crate) mod fq;
@@ -494,7 +494,7 @@ impl<F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize>
 #[cfg(test)]
 mod tests {
     use super::pasta::Fp;
-    use halo2_proofs::arithmetic::FieldExt;
+    use halo2_base::halo2_proofs::arithmetic::FieldExt;
 
     use super::{permute, ConstantLength, Hash, P128Pow5T3, P128Pow5T3Compact, Spec};
     type OrchardNullifier = P128Pow5T3<Fp>;

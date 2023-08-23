@@ -3,11 +3,11 @@ use super::super::{
     PermuteChip, PoseidonInstructions, StateWord, Var,
 };
 use super::{params::CachedConstants, util::map_array, SeptidonChip};
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Region, Value},
 };
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     circuit::{Chip, Layouter},
     plonk::{ConstraintSystem, Error},
 };

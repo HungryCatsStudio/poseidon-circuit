@@ -2,8 +2,8 @@
 extern crate bencher;
 
 use bencher::Bencher;
-use halo2_proofs::arithmetic::Field;
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_base::halo2_proofs::arithmetic::Field;
+use halo2_base::halo2_proofs::halo2curves::bn256::Fr;
 use lazy_static::lazy_static;
 use poseidon_circuit::poseidon::primitives::{ConstantLengthIden3, Hash, P128Pow5T3};
 use rand::SeedableRng;

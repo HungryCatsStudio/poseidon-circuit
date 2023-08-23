@@ -1,6 +1,6 @@
-use halo2_proofs::circuit::{Region, Value};
-//use halo2_proofs::halo2curves::bn256::Fr as F;
-use halo2_proofs::plonk::{ConstraintSystem, Error};
+use halo2_base::halo2_proofs::circuit::{Region, Value};
+//use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+use halo2_base::halo2_proofs::plonk::{ConstraintSystem, Error};
 
 use super::control::ControlChip;
 use super::full_round::FullRoundChip;
@@ -14,8 +14,8 @@ use super::util::map_array;
 /// The configuration of the permutation chip.
 ///
 /// ```
-/// use halo2_proofs::halo2curves::bn256::Fr as F;
-/// use halo2_proofs::plonk::ConstraintSystem;
+/// use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+/// use halo2_base::halo2_proofs::plonk::ConstraintSystem;
 /// use poseidon_circuit::poseidon::SeptidonChip;
 ///
 /// let mut cs = ConstraintSystem::<F>::default();

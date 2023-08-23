@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::iter;
 
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
     plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
@@ -138,7 +138,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
 
             let s_partial = meta.query_selector(s_partial);
 
-            use halo2_proofs::plonk::VirtualCells;
+            use halo2_base::halo2_proofs::plonk::VirtualCells;
             let mid = |idx: usize, meta: &mut VirtualCells<F>| {
                 let mid = mid_0.clone() * m_reg[idx][0];
                 (1..WIDTH).fold(mid, |acc, cur_idx| {
@@ -703,8 +703,8 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
 #[cfg(test)]
 mod tests {
     use crate::poseidon::primitives::pasta::{test_vectors, Fp};
-    use halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
-    use halo2_proofs::{
+    use halo2_base::halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
+    use halo2_base::halo2_proofs::{
         circuit::{Layouter, SimpleFloorPlanner, Value},
         dev::MockProver,
         plonk::{Circuit, ConstraintSystem, Error},

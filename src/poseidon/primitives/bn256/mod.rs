@@ -1,4 +1,4 @@
-pub(crate) use halo2_proofs::halo2curves::bn256::Fr as Fp;
+pub(crate) use halo2_base::halo2_proofs::halo2curves::bn256::Fr as Fp;
 
 use super::p128pow5t3::P128Pow5T3Constants;
 use super::Mds;

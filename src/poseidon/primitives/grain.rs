@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 
 use bitvec::prelude::*;
-use halo2_proofs::arithmetic::FieldExt;
+use halo2_base::halo2_proofs::arithmetic::FieldExt;
 
 const STATE: usize = 80;
 

@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::fmt;
 use std::marker::PhantomData;
 
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     arithmetic::{Field, FieldExt},
     circuit::{AssignedCell, Chip, Layouter},
     plonk::{ConstraintSystem, Error},

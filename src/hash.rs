@@ -1,9 +1,9 @@
 //! The hash circuit base on poseidon.
 
 use crate::poseidon::primitives::{ConstantLengthIden3, Domain, Hash, Spec, VariableLengthIden3};
-use halo2_proofs::halo2curves::bn256::Fr;
-use halo2_proofs::plonk::Fixed;
-use halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell};
+use halo2_base::halo2_proofs::halo2curves::bn256::Fr;
+use halo2_base::halo2_proofs::plonk::Fixed;
+use halo2_base::halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell};
 use log;
 use std::time::Instant;
 
@@ -117,7 +117,7 @@ impl MessageHashable for Fr {
 }
 
 use crate::poseidon::{PermuteChip, PoseidonInstructions};
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     circuit::{Chip, Layouter, Region, Value},
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn},
     poly::Rotation,
@@ -987,17 +987,17 @@ mod tests {
     use crate::poseidon::{Pow5Chip, SeptidonChip};
 
     use super::*;
-    use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
-    use halo2_proofs::halo2curves::group::ff::PrimeField;
-    use halo2_proofs::plonk::{create_proof, keygen_pk2, verify_proof};
-    use halo2_proofs::poly::commitment::ParamsProver;
-    use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
-    use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
-    use halo2_proofs::poly::kzg::strategy::SingleStrategy;
-    use halo2_proofs::transcript::{
+    use halo2_base::halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
+    use halo2_base::halo2_proofs::halo2curves::group::ff::PrimeField;
+    use halo2_base::halo2_proofs::plonk::{create_proof, keygen_pk2, verify_proof};
+    use halo2_base::halo2_proofs::poly::commitment::ParamsProver;
+    use halo2_base::halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
+    use halo2_base::halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
+    use halo2_base::halo2_proofs::poly::kzg::strategy::SingleStrategy;
+    use halo2_base::halo2_proofs::transcript::{
         Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
     };
-    use halo2_proofs::{circuit::SimpleFloorPlanner, plonk::Circuit};
+    use halo2_base::halo2_proofs::{circuit::SimpleFloorPlanner, plonk::Circuit};
 
     #[test]
     fn poseidon_hash() {
@@ -1049,7 +1049,7 @@ mod tests {
         );
     }
 
-    use halo2_proofs::dev::MockProver;
+    use halo2_base::halo2_proofs::dev::MockProver;
     const TEST_STEP: usize = 32;
 
     // test circuit derived from table data

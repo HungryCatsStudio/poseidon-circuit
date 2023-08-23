@@ -1,10 +1,10 @@
 use super::params::GATE_DEGREE_5;
 use super::util::query;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{Region, Value};
-//use halo2_proofs::halo2curves::bn256::Fr as F;
-use halo2_proofs::plonk::{Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells};
-use halo2_proofs::poly::Rotation;
+use halo2_base::halo2_proofs::arithmetic::FieldExt;
+use halo2_base::halo2_proofs::circuit::{Region, Value};
+//use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+use halo2_base::halo2_proofs::plonk::{Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells};
+use halo2_base::halo2_proofs::poly::Rotation;
 
 #[derive(Clone, Debug)]
 pub struct ControlChip {

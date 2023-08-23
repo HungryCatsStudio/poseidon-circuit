@@ -16,8 +16,8 @@ pub trait CachedConstants: P128Pow5T3Constants {
 
 pub mod sbox {
     use super::super::util::pow_5;
-    use halo2_proofs::arithmetic::FieldExt;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::arithmetic::FieldExt;
+    use halo2_base::halo2_proofs::plonk::Expression;
 
     pub fn expr<F: FieldExt>(input: Expression<F>, round_constant: Expression<F>) -> Expression<F> {
         pow_5::expr(input + round_constant)
@@ -33,7 +33,7 @@ pub type Mds<F> = MdsT<F, 3>;
 mod bn254 {
     use super::{CachedConstants, Mds};
     use crate::poseidon::primitives::{P128Pow5T3Compact, Spec};
-    use halo2_proofs::halo2curves::bn256::Fr as F;
+    use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
     use lazy_static::lazy_static;
     lazy_static! {
         // Cache the round constants and the MDS matrix (and unused inverse MDS matrix).

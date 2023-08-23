@@ -1,19 +1,19 @@
-use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::{
+use halo2_base::halo2_proofs::dev::MockProver;
+use halo2_base::halo2_proofs::halo2curves::{
     bn256::{Bn256, Fr as Fp, G1Affine},
     group::ff::PrimeField,
 };
-use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
-use halo2_proofs::poly::commitment::ParamsProver;
-use halo2_proofs::poly::kzg::commitment::{
+use halo2_base::halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
+use halo2_base::halo2_proofs::poly::commitment::ParamsProver;
+use halo2_base::halo2_proofs::poly::kzg::commitment::{
     KZGCommitmentScheme, ParamsKZG as Params, ParamsVerifierKZG as ParamsVerifier,
 };
-use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
-use halo2_proofs::poly::kzg::strategy::SingleStrategy;
-use halo2_proofs::transcript::{
+use halo2_base::halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
+use halo2_base::halo2_proofs::poly::kzg::strategy::SingleStrategy;
+use halo2_base::halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
 };
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
@@ -75,7 +75,7 @@ fn hash_circuit() {
 
 #[test]
 fn vk_validity() {
-    use halo2_proofs::SerdeFormat;
+    use halo2_base::halo2_proofs::SerdeFormat;
 
     let params = Params::<Bn256>::unsafe_setup(8);
 

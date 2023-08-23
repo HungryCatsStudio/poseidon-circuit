@@ -1,7 +1,7 @@
-use halo2_proofs::circuit::Value;
-//use halo2_proofs::halo2curves::bn256::Fr as F;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{ConstraintSystem, Expression, VirtualCells};
+use halo2_base::halo2_proofs::circuit::Value;
+//use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+use halo2_base::halo2_proofs::arithmetic::FieldExt;
+use halo2_base::halo2_proofs::plonk::{ConstraintSystem, Expression, VirtualCells};
 
 pub fn map_array<IN, OUT, FN>(array: &[IN; 3], mut f: FN) -> [OUT; 3]
 where
@@ -43,7 +43,7 @@ pub fn split_values<F: FieldExt>(values: Value<[F; 3]>) -> [Value<F>; 3] {
 
 pub mod pow_5 {
     use super::FieldExt;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
 
     pub fn expr<F: FieldExt>(v: Expression<F>) -> Expression<F> {
         let v2 = v.clone() * v.clone();
@@ -60,7 +60,7 @@ pub mod pow_5 {
 pub mod matmul {
     use super::super::params::Mds;
     use super::FieldExt;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use std::convert::TryInto;
 
     /// Multiply a vector of expressions by a constant matrix.
@@ -95,7 +95,7 @@ pub mod matmul {
 /// Returns `when_true` when `selector == 1`, and returns `when_false` when
 /// `selector == 0`. `selector` needs to be boolean.
 pub mod select {
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_base::halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 
     /// Returns the `when_true` expression when the selector is true, else
     /// returns the `when_false` expression.
@@ -117,7 +117,7 @@ pub mod select {
 
 /// Gadget for boolean OR.
 pub mod or {
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_base::halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 
     /// Return (a OR b), assuming a and b are boolean expressions.
     pub fn expr<F: FieldExt>(a: Expression<F>, b: Expression<F>) -> Expression<F> {

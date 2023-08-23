@@ -2,9 +2,9 @@ use super::loop_chip::LoopBody;
 use super::params::{mds, CachedConstants};
 use super::state::{Cell, SBox};
 use super::util::{join_values, matmul, query, split_values};
-use halo2_proofs::circuit::{Region, Value};
-//use halo2_proofs::halo2curves::bn256::Fr as F;
-use halo2_proofs::plonk::{ConstraintSystem, Constraints, Error, Expression, VirtualCells};
+use halo2_base::halo2_proofs::circuit::{Region, Value};
+//use halo2_base::halo2_proofs::halo2curves::bn256::Fr as F;
+use halo2_base::halo2_proofs::plonk::{ConstraintSystem, Constraints, Error, Expression, VirtualCells};
 
 #[derive(Clone, Debug)]
 pub struct SeptupleRoundChip {
