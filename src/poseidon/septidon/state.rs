@@ -52,7 +52,7 @@ impl Cell {
     ) -> Result<(), Error> {
         let offset = origin_offset as i32 + self.offset;
         assert!(offset >= 0, "cannot assign to a cell outside of its region");
-        region.assign_advice(|| "cell", self.column, offset as usize, || input)?;
+        region.assign_advice(self.column, offset as usize, || input)?;
         Ok(())
     }
 }
@@ -80,13 +80,11 @@ impl SBox {
         input: Value<F>,
     ) -> Result<Value<F>, Error> {
         region.assign_fixed(
-            || "round_constant",
             self.round_constant,
             offset + self.input.region_offset(),
             || Value::known(round_constant),
         )?;
         region.assign_advice(
-            || "initial_state",
             self.input.column,
             offset + self.input.region_offset(),
             || input,

@@ -54,7 +54,6 @@ impl ControlChip {
         begin_offset: usize,
     ) -> Result<(), Error> {
         region.assign_fixed(
-            || "",
             self.is_last,
             7 + begin_offset,
             || Value::known(F::one()),

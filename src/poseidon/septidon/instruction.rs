@@ -71,7 +71,6 @@ impl<F: CachedConstants, S: Spec<F, WIDTH, RATE>> PoseidonInstructions<F, S, WID
                     .map(|i| {
                         region
                             .assign_advice(
-                                || format!("output {i}"),
                                 chip_output[i].column,
                                 chip_output[i].offset as usize,
                                 || final_values[i],
@@ -108,7 +107,6 @@ impl<F: CachedConstants, S: Spec<F, WIDTH, RATE>> PoseidonInstructions<F, S, WID
                         is_first_pass = false;
                         let col = self.final_state_cells().first().unwrap().column;
                         region.assign_advice(
-                            || "First pass dummy assign",
                             col,
                             initial_states.len() * 8 - 1,
                             || Value::known(F::zero()),
@@ -142,7 +140,6 @@ impl<F: CachedConstants, S: Spec<F, WIDTH, RATE>> PoseidonInstructions<F, S, WID
                             .map(|i| {
                                 region
                                     .assign_advice(
-                                        || format!("output {i}"),
                                         chip_output[i].column,
                                         last_offset + chip_output[i].offset as usize,
                                         || final_values[i],

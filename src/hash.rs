@@ -457,7 +457,7 @@ where
             ),
         ] {
             for col in cols {
-                region.assign_advice(|| tip, *col, 0, || Value::known(F::zero()))?;
+                region.assign_advice(*col, 0, || Value::known(F::zero()))?;
             }
         }
 
@@ -553,7 +553,6 @@ where
 
             //assignment ...
             region.assign_fixed(
-                || "assign q_enable",
                 self.config.q_enable,
                 offset,
                 || Value::known(F::one()),
@@ -564,7 +563,6 @@ where
                 .enumerate()
                 .map(|(i, _)| {
                     region.assign_advice(
-                        || format!("state input {i}_{offset}"),
                         config.hash_table_aux[i],
                         offset,
                         || Value::known(state_start[i]),
@@ -607,7 +605,6 @@ where
                 ),
             ] {
                 region.assign_advice(
-                    || format!("{tip}_{offset}"),
                     col,
                     offset,
                     || Value::known(val),
@@ -621,7 +618,6 @@ where
                 (process_start..=offset).try_for_each(|ith| {
                     region
                         .assign_advice(
-                            || format!("hash index_{ith}"),
                             config.hash_table[0],
                             ith,
                             || Value::known(current_hash),
@@ -658,7 +654,6 @@ where
         if *is_first_pass {
             *is_first_pass = false;
             region.assign_advice(
-                || "region shape dummy column",
                 // any advice that we access in this region can be used
                 config.hash_table_aux[0],
                 data.len() - 1,
@@ -713,7 +708,6 @@ where
 
             //assignment ...
             region.assign_fixed(
-                || "assign q_enable",
                 self.config.q_enable,
                 offset,
                 || Value::known(F::one()),
@@ -724,7 +718,6 @@ where
                 .enumerate()
                 .map(|(i, _)| {
                     region.assign_advice(
-                        || format!("state input {i}_{offset}"),
                         config.hash_table_aux[i],
                         offset,
                         || Value::known(state_start[i]),
@@ -737,7 +730,6 @@ where
                 .enumerate()
                 .map(|(i, j)| {
                     region.assign_advice(
-                        || format!("state output {i}_{offset}"),
                         config.hash_table_aux[j],
                         offset,
                         || Value::known(state[i]),
@@ -767,7 +759,6 @@ where
                 ),
             ] {
                 region.assign_advice(
-                    || format!("{tip}_{offset}"),
                     col,
                     offset,
                     || Value::known(val),
