@@ -57,7 +57,7 @@ impl ControlChip {
             self.is_last,
             7 + begin_offset,
             || Value::known(F::one()),
-        )?;
+        );
         Ok(())
     }
 

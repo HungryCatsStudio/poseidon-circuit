@@ -457,7 +457,7 @@ where
             ),
         ] {
             for col in cols {
-                region.assign_advice(*col, 0, || Value::known(F::zero()))?;
+                region.assign_advice(*col, 0, || Value::known(F::zero()));
             }
         }
 
@@ -556,7 +556,7 @@ where
                 self.config.q_enable,
                 offset,
                 || Value::known(F::one()),
-            )?;
+            );
 
             let c_start = [0; 3]
                 .into_iter()
@@ -608,7 +608,7 @@ where
                     col,
                     offset,
                     || Value::known(val),
-                )?;
+                );
             }
 
             is_new_sponge = control <= STEP as u64;
@@ -658,7 +658,7 @@ where
                 config.hash_table_aux[0],
                 data.len() - 1,
                 || Value::known(F::zero()),
-            )?;
+            );
             *is_first_pass = false;
             return Ok((states_in, states_out));
         }
@@ -711,7 +711,7 @@ where
                 self.config.q_enable,
                 offset,
                 || Value::known(F::one()),
-            )?;
+            );
 
             let c_start = [0; 3]
                 .into_iter()
@@ -762,7 +762,7 @@ where
                     col,
                     offset,
                     || Value::known(val),
-                )?;
+                );
             }
 
             //we directly specify the init state of permutation

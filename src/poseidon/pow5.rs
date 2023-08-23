@@ -588,7 +588,7 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 config.partial_sbox,
                 offset,
                 || r[0],
-            )?;
+            );
 
             let p_mid: Vec<_> = m
                 .iter()
@@ -609,9 +609,6 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                     || Value::known(config.round_constants[round + 1][i]),
                 )
             };
-            for i in 0..WIDTH {
-                load_round_constant(i)?;
-            }
 
             let r_0 = (p_mid[0] + Value::known(config.round_constants[round + 1][0]))
                 .map(|v| v.pow(&config.alpha));
@@ -671,9 +668,6 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 || Value::known(config.round_constants[round][i]),
             )
         };
-        for i in 0..WIDTH {
-            load_round_constant(i)?;
-        }
 
         // Compute the next round's state.
         let (next_round, next_state) = round_fn(region)?;
@@ -684,7 +678,7 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 config.state[i],
                 offset + 1,
                 || value,
-            )?;
+            );
             Ok(StateWord(var))
         };
 
@@ -757,7 +751,7 @@ mod tests {
                             config.state[i],
                             0,
                             || Value::known(Fp::from(i as u64)),
-                        )?;
+                        );
                         Ok(StateWord(var))
                     };
 
@@ -795,7 +789,7 @@ mod tests {
                             config.state[i],
                             0,
                             || Value::known(expected_final_state[i]),
-                        )?;
+                        );
                         region.constrain_equal(final_state[i].0.cell(), var.cell())
                     };
 
@@ -911,7 +905,7 @@ mod tests {
                                 Value::unknown()
                             }
                         },
-                    )?;
+                    );
                     region.constrain_equal(output.cell(), expected_var.cell())
                 },
             )

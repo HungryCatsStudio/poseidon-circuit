@@ -110,7 +110,7 @@ impl<F: CachedConstants, S: Spec<F, WIDTH, RATE>> PoseidonInstructions<F, S, WID
                             col,
                             initial_states.len() * 8 - 1,
                             || Value::known(F::zero()),
-                        )?;
+                        );
                         return Ok(final_states);
                     }
 
