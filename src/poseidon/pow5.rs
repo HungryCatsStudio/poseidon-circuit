@@ -4,7 +4,7 @@ use std::iter;
 use halo2_base::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
-    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector, Assigned},
+    plonk::{Advice, Any, Assigned, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
     poly::Rotation,
 };
 
@@ -14,7 +14,9 @@ use super::{
 };
 
 /// Trait for a variable in the circuit.
-pub trait Var<'v, F: FieldExt>: Clone + std::fmt::Debug + From<PoseidonAssignedValue<'v, F>> {
+pub trait Var<'v, F: FieldExt>:
+    Clone + std::fmt::Debug + From<PoseidonAssignedValue<'v, F>>
+{
     /// The cell at which this variable was allocated.
     fn cell(&self) -> Cell;
 
@@ -354,6 +356,7 @@ impl<
                 let mut state = Vec::with_capacity(WIDTH);
                 let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
                     let var = region.assign_advice_from_constant(
+                        || format!("state_{i}"),
                         config.state[i],
                         0,
                         value,
@@ -391,59 +394,44 @@ impl<
                 let load_state_word = |i: usize| {
                     initial_state[i]
                         .0
-                        .copy_advice(
-                            &mut region,
-                            config.state[i],
-                            0,
-                        )
-                        .map(StateWord)
+                        .copy_advice(&mut region, config.state[i], 0)
                 };
-                let initial_state: Result<Vec<_>, Error> =
-                    (0..WIDTH).map(load_state_word).collect();
-                let initial_state = initial_state?;
+                let initial_state: Vec<_> =
+                    (0..WIDTH).map(load_state_word).map(StateWord).collect();
+                // let initial_state = initial_state?;
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
                     let constraint_var = match input.0[i].clone() {
                         Some(PaddedWord::Message(word)) => word,
-                        Some(PaddedWord::Padding(padding_value)) => region.assign_fixed(
-                            config.rc_b[i],
-                            1,
-                            Value::known(padding_value),
-                        ),
+                        Some(PaddedWord::Padding(padding_value)) => {
+                            unimplemented!()
+                            // region.assign_fixed(config.rc_b[i], 1, Value::known(padding_value))
+                        }
                         _ => panic!("Input is not padded"),
                     };
-                    constraint_var
-                        .copy_advice(
-                            || format!("load input_{i}"),
-                            &mut region,
-                            config.state[i],
-                            1,
-                        )
-                        .map(StateWord)
+                    constraint_var.copy_advice(&mut region, config.state[i], 1)
                 };
-                let input: Result<Vec<_>, Error> = (0..RATE).map(load_input_word).collect();
-                let input = input?;
+                let input: Vec<_> = (0..RATE).map(load_input_word).map(StateWord).collect();
+                // let input = input?;
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
-                    region
-                        .assign_advice(
-                            config.state[i],
-                            2,
-                            || {
-                                if let Some(inp) = input.get(i) {
-                                    initial_state[i].value() + inp.value()
-                                } else {
-                                    initial_state[i].value()
-                                }
-                            },
-                        )
-                        .map(StateWord)
+                    region.assign_advice(config.state[i], 2, || {
+                        if let Some(inp) = input.get(i) {
+                            initial_state[i].value() + inp.value()
+                        } else {
+                            initial_state[i].value()
+                        }
+                    })
+                    // .map(StateWord)
                 };
 
-                let output: Result<Vec<_>, Error> = (0..WIDTH).map(constrain_output_word).collect();
-                output.map(|output| output.try_into().unwrap())
+                let output: Vec<_> = (0..WIDTH)
+                    .map(constrain_output_word)
+                    .map(StateWord)
+                    .collect();
+                Ok(output.try_into().unwrap())
             },
         )
     }
@@ -503,7 +491,14 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
                 self.0.iter().enumerate().map(|(idx, word)| {
                     word.value() + Value::known(config.round_constants[round][idx])
                 });
-            let r: Vec<Value<F>> = q.map(|q| q.map(|q| q.pow(&config.alpha))).collect();
+            let r: Vec<Value<F>> = q
+                .map(|q| {
+                    q.map(|q| {
+                        // q.pow(&config.alpha)
+                        unimplemented!()
+                    })
+                })
+                .collect();
             let m = &config.m_reg;
             let state = m.iter().map(|m_i| {
                 r.iter()
@@ -538,7 +533,10 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
                     .map(|(idx, word)| {
                         word.value()
                             .map(|v| v + config.round_constants[round][idx])
-                            .map(|v| if idx == 0 { v.pow(&config.alpha) } else { v })
+                            .map(|v| {
+                                unimplemented!()
+                                // if idx == 0 { v.pow(&config.alpha) } else { v }
+                            })
                     })
                     .collect();
 
@@ -567,19 +565,17 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
             let m = &config.m_reg;
             let p: Vec<_> = self.0.iter().map(|word| word.value()).collect();
 
-            let r_0 = (p[0] + Value::known(config.round_constants[round][0]))
-                .map(|v| v.pow(&config.alpha));
+            let r_0 = (p[0] + Value::known(config.round_constants[round][0])).map(|v| {
+                // v.pow(&config.alpha)
+                unimplemented!()
+            });
             let r_i = p[1..]
                 .iter()
                 .enumerate()
                 .map(|(i, p_i)| Value::known(config.round_constants[round][i + 1]) + p_i);
             let r: Vec<_> = Some(r_0).into_iter().chain(r_i).collect();
 
-            region.assign_advice(
-                config.partial_sbox,
-                offset,
-                r[0],
-            );
+            region.assign_advice(config.partial_sbox, offset, r[0]);
 
             let p_mid: Vec<_> = m
                 .iter()
@@ -632,15 +628,10 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
         config: &Pow5Config<F, WIDTH, RATE>,
         initial_state: &State<StateWord<F>, WIDTH>,
     ) -> Result<Self, Error> {
-        let load_state_word = |i: usize| {
-            initial_state[i]
-                .0
-                .copy_advice(|| region, config.state[i], 0)
-                .map(StateWord)
-        };
+        let load_state_word = |i: usize| initial_state[i].0.copy_advice(region, config.state[i], 0);
 
-        let state: Result<Vec<_>, _> = (0..WIDTH).map(load_state_word).collect();
-        state.map(|state| Pow5State(state.try_into().unwrap()))
+        let state: Vec<_> = (0..WIDTH).map(load_state_word).map(StateWord).collect();
+        Ok(Pow5State(state.try_into().unwrap()))
     }
 
     fn round<const RATE: usize>(
@@ -671,11 +662,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
 
         let next_state_word = |i: usize| {
             let value = next_state[i];
-            let var = region.assign_advice(
-                config.state[i],
-                offset + 1,
-                value,
-            );
+            let var = region.assign_advice(config.state[i], offset + 1, value);
             Ok(StateWord(var))
         };
 

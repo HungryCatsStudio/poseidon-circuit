@@ -21,9 +21,9 @@ use self::pow5::PoseidonAssignedValue;
 
 /// A word from the padded input to a Poseidon sponge.
 #[derive(Clone, Debug)]
-pub enum PaddedWord<F: Field> {
+pub enum PaddedWord<'v, F: Field> {
     /// A message word provided by the prover.
-    Message(AssignedCell<F, F>),
+    Message(PoseidonAssignedValue<'v, F>),
     /// A padding word, that will be fixed in the circuit parameters.
     Padding(F),
 }
@@ -179,7 +179,7 @@ impl<
         D: Domain<F, RATE>,
         const T: usize,
         const RATE: usize,
-    > Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<F>, RATE>, D, T, RATE>
+    > Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<'v, F>, RATE>, D, T, RATE>
 {
     /// Constructs a new duplex sponge for the given Poseidon specification.
     pub fn new(chip: PoseidonChip, mut layouter: impl Layouter<F>) -> Result<Self, Error> {
@@ -286,7 +286,7 @@ pub struct Hash<
     const T: usize,
     const RATE: usize,
 > {
-    sponge: Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<F>, RATE>, D, T, RATE>,
+    sponge: Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<'v, F>, RATE>, D, T, RATE>,
 }
 
 impl<
@@ -319,7 +319,7 @@ impl<
     pub fn hash(
         mut self,
         mut layouter: impl Layouter<F>,
-        message: [AssignedCell<F, F>; L],
+        message: [PoseidonAssignedValue<'v, F>; L],
     ) -> Result<PoseidonAssignedValue<'v, F>, Error> {
         for (i, value) in message
             .into_iter()
