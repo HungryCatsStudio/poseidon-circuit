@@ -17,6 +17,8 @@ pub mod primitives;
 use primitives::{Absorbing, ConstantLength, Domain, Spec, SpongeMode, Squeezing, State};
 use std::fmt::Debug as DebugT;
 
+use self::pow5::PoseidonAssignedValue;
+
 /// A word from the padded input to a Poseidon sponge.
 #[derive(Clone, Debug)]
 pub enum PaddedWord<F: Field> {
@@ -27,8 +29,8 @@ pub enum PaddedWord<F: Field> {
 }
 
 /// This trait is the interface to chips that implement a permutation.
-pub trait PermuteChip<F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize>:
-    Chip<F> + Clone + DebugT + PoseidonInstructions<F, S, T, RATE>
+pub trait PermuteChip<'v, F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize>:
+    Chip<F> + Clone + DebugT + PoseidonInstructions<'v, F, S, T, RATE>
 {
     /// Configure the permutation chip.
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config;
@@ -38,14 +40,14 @@ pub trait PermuteChip<F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RA
 }
 
 /// The set of circuit instructions required to use the Poseidon permutation.
-pub trait PoseidonInstructions<F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize>:
+pub trait PoseidonInstructions<'v, F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize>:
     Chip<F>
 {
     /// Variable representing the word over which the Poseidon permutation operates.
     type Word: Clone
         + fmt::Debug
-        + From<AssignedCell<F, F>>
-        + Into<AssignedCell<F, F>>
+        + From<PoseidonAssignedValue<'v, F>>
+        + Into<PoseidonAssignedValue<'v, F>>
         + Send
         + Sync;
 
@@ -73,12 +75,13 @@ pub trait PoseidonInstructions<F: FieldExt, S: Spec<F, T, RATE>, const T: usize,
 ///
 /// [`Hash`]: self::Hash
 pub trait PoseidonSpongeInstructions<
+    'v,
     F: FieldExt,
     S: Spec<F, T, RATE>,
     D: Domain<F, RATE>,
     const T: usize,
     const RATE: usize,
->: PoseidonInstructions<F, S, T, RATE>
+>: PoseidonInstructions<'v, F, S, T, RATE>
 {
     /// Returns the initial empty state for the given domain.
     fn initial_state(&self, layouter: &mut impl Layouter<F>)
@@ -99,8 +102,9 @@ pub trait PoseidonSpongeInstructions<
 /// A word over which the Poseidon permutation operates.
 #[derive(Debug)]
 pub struct Word<
+    'v,
     F: FieldExt,
-    PoseidonChip: PoseidonInstructions<F, S, T, RATE>,
+    PoseidonChip: PoseidonInstructions<'v, F, S, T, RATE>,
     S: Spec<F, T, RATE>,
     const T: usize,
     const RATE: usize,
@@ -109,12 +113,13 @@ pub struct Word<
 }
 
 impl<
+        'v,
         F: FieldExt,
-        PoseidonChip: PoseidonInstructions<F, S, T, RATE>,
+        PoseidonChip: PoseidonInstructions<'v, F, S, T, RATE>,
         S: Spec<F, T, RATE>,
         const T: usize,
         const RATE: usize,
-    > Word<F, PoseidonChip, S, T, RATE>
+    > Word<'v, F, PoseidonChip, S, T, RATE>
 {
     /// The word contained in this gadget.
     pub fn inner(&self) -> PoseidonChip::Word {
@@ -128,8 +133,9 @@ impl<
 }
 
 fn poseidon_sponge<
+    'v,
     F: FieldExt,
-    PoseidonChip: PoseidonSpongeInstructions<F, S, D, T, RATE>,
+    PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
     S: Spec<F, T, RATE>,
     D: Domain<F, RATE>,
     const T: usize,
@@ -150,8 +156,9 @@ fn poseidon_sponge<
 /// A Poseidon sponge.
 #[derive(Debug)]
 pub struct Sponge<
+    'v,
     F: FieldExt,
-    PoseidonChip: PoseidonSpongeInstructions<F, S, D, T, RATE>,
+    PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
     S: Spec<F, T, RATE>,
     M: SpongeMode,
     D: Domain<F, RATE>,
@@ -165,13 +172,14 @@ pub struct Sponge<
 }
 
 impl<
+        'v,
         F: FieldExt,
-        PoseidonChip: PoseidonSpongeInstructions<F, S, D, T, RATE>,
+        PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
         S: Spec<F, T, RATE>,
         D: Domain<F, RATE>,
         const T: usize,
         const RATE: usize,
-    > Sponge<F, PoseidonChip, S, Absorbing<PaddedWord<F>, RATE>, D, T, RATE>
+    > Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<F>, RATE>, D, T, RATE>
 {
     /// Constructs a new duplex sponge for the given Poseidon specification.
     pub fn new(chip: PoseidonChip, mut layouter: impl Layouter<F>) -> Result<Self, Error> {
@@ -219,7 +227,7 @@ impl<
     pub fn finish_absorbing(
         mut self,
         mut layouter: impl Layouter<F>,
-    ) -> Result<Sponge<F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>, Error>
+    ) -> Result<Sponge<'v, F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>, Error>
     {
         let mode = poseidon_sponge(
             &self.chip,
@@ -238,16 +246,17 @@ impl<
 }
 
 impl<
+        'v,
         F: FieldExt,
-        PoseidonChip: PoseidonSpongeInstructions<F, S, D, T, RATE>,
+        PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
         S: Spec<F, T, RATE>,
         D: Domain<F, RATE>,
         const T: usize,
         const RATE: usize,
-    > Sponge<F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>
+    > Sponge<'v, F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>
 {
     /// Squeezes an element from the sponge.
-    pub fn squeeze(&mut self, mut layouter: impl Layouter<F>) -> Result<AssignedCell<F, F>, Error> {
+    pub fn squeeze(&mut self, mut layouter: impl Layouter<F>) -> Result<PoseidonAssignedValue<'v, F>, Error> {
         loop {
             for entry in self.mode.0.iter_mut() {
                 if let Some(inner) = entry.take() {
@@ -269,24 +278,26 @@ impl<
 /// A Poseidon hash function, built around a sponge.
 #[derive(Debug)]
 pub struct Hash<
+    'v,
     F: FieldExt,
-    PoseidonChip: PoseidonSpongeInstructions<F, S, D, T, RATE>,
+    PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
     S: Spec<F, T, RATE>,
     D: Domain<F, RATE>,
     const T: usize,
     const RATE: usize,
 > {
-    sponge: Sponge<F, PoseidonChip, S, Absorbing<PaddedWord<F>, RATE>, D, T, RATE>,
+    sponge: Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<F>, RATE>, D, T, RATE>,
 }
 
 impl<
+        'v,
         F: FieldExt,
-        PoseidonChip: PoseidonSpongeInstructions<F, S, D, T, RATE>,
+        PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
         S: Spec<F, T, RATE>,
         D: Domain<F, RATE>,
         const T: usize,
         const RATE: usize,
-    > Hash<F, PoseidonChip, S, D, T, RATE>
+    > Hash<'v, F, PoseidonChip, S, D, T, RATE>
 {
     /// Initializes a new hasher.
     pub fn init(chip: PoseidonChip, layouter: impl Layouter<F>) -> Result<Self, Error> {
@@ -295,20 +306,21 @@ impl<
 }
 
 impl<
+        'v,
         F: FieldExt,
-        PoseidonChip: PoseidonSpongeInstructions<F, S, ConstantLength<L>, T, RATE>,
+        PoseidonChip: PoseidonSpongeInstructions<'v, F, S, ConstantLength<L>, T, RATE>,
         S: Spec<F, T, RATE>,
         const T: usize,
         const RATE: usize,
         const L: usize,
-    > Hash<F, PoseidonChip, S, ConstantLength<L>, T, RATE>
+    > Hash<'v, F, PoseidonChip, S, ConstantLength<L>, T, RATE>
 {
     /// Hashes the given input.
     pub fn hash(
         mut self,
         mut layouter: impl Layouter<F>,
         message: [AssignedCell<F, F>; L],
-    ) -> Result<AssignedCell<F, F>, Error> {
+    ) -> Result<PoseidonAssignedValue<'v, F>, Error> {
         for (i, value) in message
             .into_iter()
             .map(PaddedWord::Message)

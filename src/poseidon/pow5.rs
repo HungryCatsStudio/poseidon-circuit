@@ -4,7 +4,7 @@ use std::iter;
 use halo2_base::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
-    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
+    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector, Assigned},
     poly::Rotation,
 };
 
@@ -14,22 +14,12 @@ use super::{
 };
 
 /// Trait for a variable in the circuit.
-pub trait Var<F: FieldExt>: Clone + std::fmt::Debug + From<AssignedCell<F, F>> {
+pub trait Var<'v, F: FieldExt>: Clone + std::fmt::Debug + From<PoseidonAssignedValue<'v, F>> {
     /// The cell at which this variable was allocated.
     fn cell(&self) -> Cell;
 
     /// The value allocated to this variable.
-    fn value(&self) -> Value<F>;
-}
-
-impl<F: FieldExt> Var<F> for AssignedCell<F, F> {
-    fn cell(&self) -> Cell {
-        *self.cell()
-    }
-
-    fn value(&self) -> Value<F> {
-        self.value().cloned()
-    }
+    fn value(&self) -> Value<&'v Assigned<F>>;
 }
 
 /// Configuration for a [`Pow5Chip`].
@@ -258,7 +248,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Chip<F> for Pow5Chip<F,
     }
 }
 
-impl<F: FieldExt, S: Spec<F, 3, 2>> PermuteChip<F, S, 3, 2> for Pow5Chip<F, 3, 2> {
+impl<'v, F: FieldExt, S: Spec<F, 3, 2>> PermuteChip<'v, F, S, 3, 2> for Pow5Chip<F, 3, 2> {
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let state = [0; 3].map(|_| meta.advice_column());
         let partial_sbox = meta.advice_column();
@@ -278,10 +268,10 @@ impl<F: FieldExt, S: Spec<F, 3, 2>> PermuteChip<F, S, 3, 2> for Pow5Chip<F, 3, 2
     }
 }
 
-impl<F: FieldExt, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: usize>
-    PoseidonInstructions<F, S, WIDTH, RATE> for Pow5Chip<F, WIDTH, RATE>
+impl<'v, F: FieldExt, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: usize>
+    PoseidonInstructions<'v, F, S, WIDTH, RATE> for Pow5Chip<F, WIDTH, RATE>
 {
-    type Word = StateWord<F>;
+    type Word = StateWord<'v, F>;
 
     fn permute(
         &self,
@@ -345,12 +335,13 @@ impl<F: FieldExt, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: usize
 }
 
 impl<
+        'v,
         F: FieldExt,
         S: Spec<F, WIDTH, RATE>,
         D: Domain<F, RATE>,
         const WIDTH: usize,
         const RATE: usize,
-    > PoseidonSpongeInstructions<F, S, D, WIDTH, RATE> for Pow5Chip<F, WIDTH, RATE>
+    > PoseidonSpongeInstructions<'v, F, S, D, WIDTH, RATE> for Pow5Chip<F, WIDTH, RATE>
 {
     fn initial_state(
         &self,
@@ -363,7 +354,6 @@ impl<
                 let mut state = Vec::with_capacity(WIDTH);
                 let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
                     let var = region.assign_advice_from_constant(
-                        || format!("state_{i}"),
                         config.state[i],
                         0,
                         value,
@@ -402,7 +392,6 @@ impl<
                     initial_state[i]
                         .0
                         .copy_advice(
-                            || format!("load state_{i}"),
                             &mut region,
                             config.state[i],
                             0,
@@ -473,34 +462,35 @@ impl<
 
 /// A word in the Poseidon state.
 #[derive(Clone, Debug)]
-pub struct StateWord<F: FieldExt>(pub AssignedCell<F, F>);
+pub struct StateWord<'v, F: FieldExt>(pub PoseidonAssignedValue<'v, F>);
+pub type PoseidonAssignedValue<'v, F> = AssignedCell<&'v Assigned<F>, F>;
 
-impl<F: FieldExt> From<StateWord<F>> for AssignedCell<F, F> {
-    fn from(state_word: StateWord<F>) -> AssignedCell<F, F> {
+impl<'v, F: FieldExt> From<StateWord<'v, F>> for PoseidonAssignedValue<'v, F> {
+    fn from(state_word: StateWord<F>) -> PoseidonAssignedValue<'v, F> {
         state_word.0
     }
 }
 
-impl<F: FieldExt> From<AssignedCell<F, F>> for StateWord<F> {
-    fn from(cell_value: AssignedCell<F, F>) -> StateWord<F> {
+impl<'v, F: FieldExt> From<PoseidonAssignedValue<'v, F>> for StateWord<'v, F> {
+    fn from(cell_value: PoseidonAssignedValue<'v, F>) -> StateWord<'v, F> {
         StateWord(cell_value)
     }
 }
 
-impl<F: FieldExt> Var<F> for StateWord<F> {
+impl<'v, F: FieldExt> Var<'v, F> for StateWord<'v, F> {
     fn cell(&self) -> Cell {
         *self.0.cell()
     }
 
-    fn value(&self) -> Value<F> {
+    fn value(&self) -> Value<&'v Assigned<F>> {
         self.0.value().cloned()
     }
 }
 
 #[derive(Debug)]
-struct Pow5State<F: FieldExt, const WIDTH: usize>([StateWord<F>; WIDTH]);
+struct Pow5State<'v, F: FieldExt, const WIDTH: usize>([StateWord<'v, F>; WIDTH]);
 
-impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
+impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
     fn full_round<const RATE: usize>(
         self,
         region: &mut Region<F>,
@@ -645,7 +635,7 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
         let load_state_word = |i: usize| {
             initial_state[i]
                 .0
-                .copy_advice(|| format!("load state_{i}"), region, config.state[i], 0)
+                .copy_advice(|| region, config.state[i], 0)
                 .map(StateWord)
         };
 
