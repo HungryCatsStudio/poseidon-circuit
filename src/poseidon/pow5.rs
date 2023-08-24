@@ -4,7 +4,7 @@ use std::iter;
 use halo2_base::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
-    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector, Assigned},
+    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
     poly::Rotation,
 };
 
@@ -24,7 +24,7 @@ pub trait Var<F: FieldExt>: Clone + std::fmt::Debug + From<AssignedCell<F, F>> {
 
 impl<F: FieldExt> Var<F> for AssignedCell<F, F> {
     fn cell(&self) -> Cell {
-        self.cell()
+        *self.cell()
     }
 
     fn value(&self) -> Value<F> {
@@ -363,6 +363,7 @@ impl<
                 let mut state = Vec::with_capacity(WIDTH);
                 let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
                     let var = region.assign_advice_from_constant(
+                        || format!("state_{i}"),
                         config.state[i],
                         0,
                         value,
@@ -419,8 +420,8 @@ impl<
                         Some(PaddedWord::Padding(padding_value)) => region.assign_fixed(
                             config.rc_b[i],
                             1,
-                            || Value::known(padding_value),
-                        )?,
+                            Value::known(padding_value),
+                        ),
                         _ => panic!("Input is not padded"),
                     };
                     constraint_var
@@ -473,7 +474,6 @@ impl<
 /// A word in the Poseidon state.
 #[derive(Clone, Debug)]
 pub struct StateWord<F: FieldExt>(pub AssignedCell<F, F>);
-pub type PoseidonAssignedValue<'v, F> = AssignedCell<&'v Assigned<F>, F>;
 
 impl<F: FieldExt> From<StateWord<F>> for AssignedCell<F, F> {
     fn from(state_word: StateWord<F>) -> AssignedCell<F, F> {
@@ -489,7 +489,7 @@ impl<F: FieldExt> From<AssignedCell<F, F>> for StateWord<F> {
 
 impl<F: FieldExt> Var<F> for StateWord<F> {
     fn cell(&self) -> Cell {
-        self.0.cell()
+        *self.0.cell()
     }
 
     fn value(&self) -> Value<F> {
@@ -588,7 +588,7 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
             region.assign_advice(
                 config.partial_sbox,
                 offset,
-                || r[0],
+                r[0],
             );
 
             let p_mid: Vec<_> = m
@@ -610,6 +610,9 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                     || Value::known(config.round_constants[round + 1][i]),
                 )
             };
+            for i in 0..WIDTH {
+                load_round_constant(i)?;
+            }
 
             let r_0 = (p_mid[0] + Value::known(config.round_constants[round + 1][0]))
                 .map(|v| v.pow(&config.alpha));
@@ -678,7 +681,7 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
             let var = region.assign_advice(
                 config.state[i],
                 offset + 1,
-                || value,
+                value,
             );
             Ok(StateWord(var))
         };
@@ -691,8 +694,8 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
 #[cfg(test)]
 mod tests {
     use crate::poseidon::primitives::pasta::{test_vectors, Fp};
-    use halo2_base::halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
-    use halo2_base::halo2_proofs::{
+    use halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
+    use halo2_proofs::{
         circuit::{Layouter, SimpleFloorPlanner, Value},
         dev::MockProver,
         plonk::{Circuit, ConstraintSystem, Error},
@@ -749,10 +752,11 @@ mod tests {
                 |mut region| {
                     let state_word = |i: usize| {
                         let var = region.assign_advice(
+                            || format!("load state_{}", i),
                             config.state[i],
                             0,
                             || Value::known(Fp::from(i as u64)),
-                        );
+                        )?;
                         Ok(StateWord(var))
                     };
 
@@ -787,10 +791,11 @@ mod tests {
                 |mut region| {
                     let mut final_state_word = |i: usize| {
                         let var = region.assign_advice(
+                            || format!("load final_state_{}", i),
                             config.state[i],
                             0,
                             || Value::known(expected_final_state[i]),
-                        );
+                        )?;
                         region.constrain_equal(final_state[i].0.cell(), var.cell())
                     };
 
@@ -870,6 +875,7 @@ mod tests {
                     let message_word = |i: usize| {
                         let value = self.message.map(|message_vals| message_vals[i]);
                         region.assign_advice(
+                            || format!("load message_{}", i),
                             config.state[i % WIDTH],
                             i / WIDTH,
                             || {
@@ -897,6 +903,7 @@ mod tests {
                 || "constrain output",
                 |mut region| {
                     let expected_var = region.assign_advice(
+                        || "load output",
                         config.state[0],
                         0,
                         || {
@@ -906,7 +913,7 @@ mod tests {
                                 Value::unknown()
                             }
                         },
-                    );
+                    )?;
                     region.constrain_equal(output.cell(), expected_var.cell())
                 },
             )
