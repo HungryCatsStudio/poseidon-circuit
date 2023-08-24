@@ -4,7 +4,7 @@ use std::iter;
 use halo2_base::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
-    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
+    plonk::{Advice, Any, Column, ConstraintSystem, Error, Expression, Fixed, Selector, Assigned},
     poly::Rotation,
 };
 
@@ -473,6 +473,7 @@ impl<
 /// A word in the Poseidon state.
 #[derive(Clone, Debug)]
 pub struct StateWord<F: FieldExt>(pub AssignedCell<F, F>);
+pub type PoseidonAssignedValue<'v, F> = AssignedCell<&'v Assigned<F>, F>;
 
 impl<F: FieldExt> From<StateWord<F>> for AssignedCell<F, F> {
     fn from(state_word: StateWord<F>) -> AssignedCell<F, F> {
