@@ -607,11 +607,11 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 region.assign_fixed(
                     config.rc_b[i],
                     offset,
-                    || Value::known(config.round_constants[round + 1][i]),
+                    Value::known(config.round_constants[round + 1][i]),
                 )
             };
             for i in 0..WIDTH {
-                load_round_constant(i)?;
+                load_round_constant(i);
             }
 
             let r_0 = (p_mid[0] + Value::known(config.round_constants[round + 1][0]))
@@ -669,7 +669,7 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
             region.assign_fixed(
                 config.rc_a[i],
                 offset,
-                || Value::known(config.round_constants[round][i]),
+                Value::known(config.round_constants[round][i]),
             )
         };
         for i in 0..WIDTH {
