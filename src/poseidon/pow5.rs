@@ -672,6 +672,9 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 || Value::known(config.round_constants[round][i]),
             )
         };
+        for i in 0..WIDTH {
+            load_round_constant(i);
+        }
 
         // Compute the next round's state.
         let (next_round, next_state) = round_fn(region)?;
