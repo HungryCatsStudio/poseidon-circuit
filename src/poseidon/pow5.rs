@@ -870,8 +870,8 @@ mod tests {
                     let message_word = |i: usize| {
                         let value = self.message.map(|message_vals| message_vals[i]);
                         region.assign_advice(
-                            config.state[i],
-                            0,
+                            config.state[i % WIDTH],
+                            i / WIDTH,
                             || {
                                 if let Some(v) = value {
                                     Value::known(v)
@@ -935,12 +935,17 @@ mod tests {
     fn poseidon_hash_longer_input() {
         let rng = OsRng;
 
-        let message = [Fp::random(rng), Fp::random(rng), Fp::random(rng)];
+        let message = [
+            Fp::random(rng),
+            Fp::random(rng),
+            Fp::random(rng),
+            Fp::random(rng),
+        ];
         let output =
-            poseidon::Hash::<_, OrchardNullifier, ConstantLength<3>, 3, 2>::init().hash(message);
+            poseidon::Hash::<_, OrchardNullifier, ConstantLength<4>, 3, 2>::init().hash(message);
 
         let k = 7;
-        let circuit = HashCircuit::<OrchardNullifier, 3, 2, 3> {
+        let circuit = HashCircuit::<OrchardNullifier, 3, 2, 4> {
             message: Some(message),
             output: Some(output),
             _spec: PhantomData,
