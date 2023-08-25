@@ -1,12 +1,12 @@
 use std::convert::TryInto;
 use std::iter;
 
-use halo2_base::halo2_proofs::{
+use halo2_base::{halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
     plonk::{Advice, Any, Assigned, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
     poly::Rotation,
-};
+}, utils::value_to_option};
 
 use super::{
     primitives::{Absorbing, Domain, Mds, Spec, Squeezing, State},
@@ -21,7 +21,7 @@ pub trait Var<'v, F: FieldExt>:
     fn cell(&self) -> Cell;
 
     /// The value allocated to this variable.
-    fn value(&self) -> Value<&'v Assigned<F>>;
+    fn value(&self) -> Value<F>;
 }
 
 /// Configuration for a [`Pow5Chip`].
@@ -355,12 +355,13 @@ impl<
             |mut region| {
                 let mut state = Vec::with_capacity(WIDTH);
                 let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
-                    let var = region.assign_advice_from_constant(
+                    let var  = region.assign_advice_from_constant(
                         || format!("state_{i}"),
                         config.state[i],
                         0,
                         value,
                     )?;
+
                     state.push(StateWord(var));
 
                     Ok(())
@@ -417,14 +418,13 @@ impl<
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
-                    region.assign_advice(config.state[i], 2, || {
+                    region.assign_advice(config.state[i], 2, {
                         if let Some(inp) = input.get(i) {
                             initial_state[i].value() + inp.value()
                         } else {
                             initial_state[i].value()
                         }
                     })
-                    // .map(StateWord)
                 };
 
                 let output: Vec<_> = (0..WIDTH)
@@ -470,8 +470,17 @@ impl<'v, F: FieldExt> Var<'v, F> for StateWord<'v, F> {
         *self.0.cell()
     }
 
-    fn value(&self) -> Value<&'v Assigned<F>> {
-        self.0.value().cloned()
+    fn value(&self) -> Value<F> {
+        Value::known(extract_value(self.0).clone())
+    }
+}
+
+fn extract_value<'v, F: FieldExt>(assigned_value: PoseidonAssignedValue<'v, F>) -> F {
+    let assigned = **value_to_option(assigned_value.value()).unwrap();
+    match assigned {
+        halo2_base::halo2_proofs::plonk::Assigned::Zero => F::zero(),
+        halo2_base::halo2_proofs::plonk::Assigned::Trivial(f) => f,
+        _ => panic!("value should be trival"),
     }
 }
 
@@ -593,7 +602,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
                 region.assign_fixed(
                     config.rc_b[i],
                     offset,
-                    Value::known(config.round_constants[round + 1][i]),
+                    config.round_constants[round + 1][i],
                 )
             };
             for i in 0..WIDTH {
@@ -650,7 +659,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
             region.assign_fixed(
                 config.rc_a[i],
                 offset,
-                Value::known(config.round_constants[round][i]),
+                config.round_constants[round][i],
             )
         };
         for i in 0..WIDTH {
