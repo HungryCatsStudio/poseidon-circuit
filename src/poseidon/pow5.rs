@@ -674,8 +674,8 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
 #[cfg(test)]
 mod tests {
     use crate::poseidon::primitives::pasta::{test_vectors, Fp};
-    use halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
-    use halo2_proofs::{
+    use halo2_base::halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
+    use halo2_base::halo2_proofs::{
         circuit::{Layouter, SimpleFloorPlanner, Value},
         dev::MockProver,
         plonk::{Circuit, ConstraintSystem, Error},
