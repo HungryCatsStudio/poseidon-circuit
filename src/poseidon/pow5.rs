@@ -741,11 +741,10 @@ mod tests {
                 |mut region| {
                     let state_word = |i: usize| {
                         let var = region.assign_advice(
-                            || format!("load state_{}", i),
                             config.state[i],
                             0,
-                            || Value::known(Fp::from(i as u64)),
-                        )?;
+                            Value::known(Fp::from(i as u64)),
+                        );
                         Ok(StateWord(var))
                     };
 
@@ -780,16 +779,15 @@ mod tests {
                 |mut region| {
                     let mut final_state_word = |i: usize| {
                         let var = region.assign_advice(
-                            || format!("load final_state_{}", i),
                             config.state[i],
                             0,
-                            || Value::known(expected_final_state[i]),
-                        )?;
+                            Value::known(expected_final_state[i]),
+                        );
                         region.constrain_equal(final_state[i].0.cell(), var.cell())
                     };
 
                     for i in 0..(WIDTH) {
-                        final_state_word(i)?;
+                        final_state_word(i);
                     }
 
                     Ok(())
@@ -864,21 +862,18 @@ mod tests {
                     let message_word = |i: usize| {
                         let value = self.message.map(|message_vals| message_vals[i]);
                         region.assign_advice(
-                            || format!("load message_{}", i),
                             config.state[i % WIDTH],
                             i / WIDTH,
-                            || {
-                                if let Some(v) = value {
-                                    Value::known(v)
-                                } else {
-                                    Value::unknown()
-                                }
-                            },
+                        if let Some(v) = value {
+                                Value::known(v)
+                            } else {
+                                Value::unknown()
+                            }
                         )
                     };
 
-                    let message: Result<Vec<_>, Error> = (0..L).map(message_word).collect();
-                    Ok(message?.try_into().unwrap())
+                    let message: Vec<_> = (0..L).map(message_word).collect();
+                    Ok(message.try_into().unwrap())
                 },
             )?;
 
@@ -892,18 +887,16 @@ mod tests {
                 || "constrain output",
                 |mut region| {
                     let expected_var = region.assign_advice(
-                        || "load output",
                         config.state[0],
                         0,
-                        || {
-                            if let Some(v) = self.output {
-                                Value::known(v)
-                            } else {
-                                Value::unknown()
-                            }
-                        },
-                    )?;
-                    region.constrain_equal(output.cell(), expected_var.cell())
+                        if let Some(v) = self.output {
+                            Value::known(v)
+                        } else {
+                            Value::unknown()
+                        }
+                    );
+                    region.constrain_equal(output.cell(), expected_var.cell());
+                    Ok(())
                 },
             )
         }
