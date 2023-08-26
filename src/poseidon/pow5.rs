@@ -399,7 +399,6 @@ impl<
                 };
                 let initial_state: Vec<_> =
                     (0..WIDTH).map(load_state_word).map(StateWord).collect();
-                // let initial_state = initial_state?;
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {

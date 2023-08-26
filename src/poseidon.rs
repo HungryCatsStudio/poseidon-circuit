@@ -40,8 +40,13 @@ pub trait PermuteChip<'v, F: FieldExt, S: Spec<F, T, RATE>, const T: usize, cons
 }
 
 /// The set of circuit instructions required to use the Poseidon permutation.
-pub trait PoseidonInstructions<'v, F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize>:
-    Chip<F>
+pub trait PoseidonInstructions<
+    'v,
+    F: FieldExt,
+    S: Spec<F, T, RATE>,
+    const T: usize,
+    const RATE: usize,
+>: Chip<F>
 {
     /// Variable representing the word over which the Poseidon permutation operates.
     type Word: Clone
@@ -132,11 +137,9 @@ fn poseidon_sponge<
     chip: &PoseidonChip,
     mut layouter: impl Layouter<F>,
     state: &mut State<PoseidonChip::Word, T>,
-    input: Option<&Absorbing<PaddedWord<F>, RATE>>,
+    input: &Absorbing<PaddedWord<F>, RATE>,
 ) -> Result<Squeezing<PoseidonChip::Word, RATE>, Error> {
-    if let Some(input) = input {
-        *state = chip.add_input(&mut layouter, state, input)?;
-    }
+    *state = chip.add_input(&mut layouter, state, input)?;
     *state = chip.permute(&mut layouter, state)?;
     Ok(PoseidonChip::get_output(state))
 }
@@ -203,7 +206,7 @@ impl<
             &self.chip,
             layouter.namespace(|| "PoseidonSponge"),
             &mut self.state,
-            Some(&self.mode),
+            &self.mode,
         )?;
         self.mode = Absorbing::init_with(value);
 
@@ -215,13 +218,15 @@ impl<
     pub fn finish_absorbing(
         mut self,
         mut layouter: impl Layouter<F>,
-    ) -> Result<Sponge<'v, F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>, Error>
-    {
+    ) -> Result<
+        Sponge<'v, F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>,
+        Error,
+    > {
         let mode = poseidon_sponge(
             &self.chip,
             layouter.namespace(|| "PoseidonSponge"),
             &mut self.state,
-            Some(&self.mode),
+            &self.mode,
         )?;
 
         Ok(Sponge {
@@ -244,7 +249,10 @@ impl<
     > Sponge<'v, F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>
 {
     /// Squeezes an element from the sponge.
-    pub fn squeeze(&mut self, mut layouter: impl Layouter<F>) -> Result<PoseidonAssignedValue<'v, F>, Error> {
+    pub fn squeeze(
+        &mut self,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<PoseidonAssignedValue<'v, F>, Error> {
         loop {
             for entry in self.mode.0.iter_mut() {
                 if let Some(inner) = entry.take() {
