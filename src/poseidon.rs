@@ -301,10 +301,45 @@ impl<
             .chain(<ConstantLength<L> as Domain<F, RATE>>::padding(L).map(PaddedWord::Padding))
             .enumerate()
         {
-            sponge.absorb(layouter.namespace(|| format!("absorb_{i}")), value)?;
+            let mut layouter = layouter.namespace(|| format!("absorb_{i}"));
+            for entry in sponge.mode.0.iter_mut() {
+                if entry.is_none() {
+                    *entry = Some(value);
+                    continue;
+                }
+            }
+
+            // We've already absorbed as many elements as we can
+            let chip: &PoseidonChip = &sponge.chip;
+            let mut layouter = layouter.namespace(|| "PoseidonSponge");
+            let state: &mut State<PoseidonChip::Word, T> = &mut sponge.state;
+            let input: &Absorbing<PaddedWord<F>, RATE> = &sponge.mode;
+            *state = chip.add_input(&mut layouter, state, input)?;
+            *state = chip.permute(&mut layouter, state)?;
+
+            sponge.mode = Absorbing::init_with(value);
         }
-        sponge
-            .finish_absorbing(layouter.namespace(|| "finish absorbing"))?
-            .squeeze(layouter.namespace(|| "squeeze"))
+
+        // finish absorbing
+        let mut layouter = layouter.namespace(|| "finish absorbing");
+        let mode = {
+            let chip: &PoseidonChip = &sponge.chip;
+            let mut layouter = layouter.namespace(|| "PoseidonSponge");
+            let state: &mut State<PoseidonChip::Word, T> = &mut sponge.state;
+            let input: &Absorbing<PaddedWord<F>, RATE> = &sponge.mode;
+            *state = chip.add_input(&mut layouter, state, input)?;
+            *state = chip.permute(&mut layouter, state)?;
+            PoseidonChip::get_output(state)
+        };
+
+        let mut sponge = Sponge {
+            chip: sponge.chip,
+            mode,
+            state: sponge.state,
+            _marker: PhantomData::default(),
+        };
+
+        // finally squeeze
+        sponge.squeeze(layouter.namespace(|| "squeeze"))
     }
 }
