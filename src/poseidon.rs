@@ -273,6 +273,7 @@ pub struct Hash<
     D: Domain<F, RATE>,
     const T: usize,
     const RATE: usize,
+    const L: usize,
 > {
     sponge: Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<'v, F>, RATE>, D, T, RATE>,
 }
@@ -285,40 +286,26 @@ impl<
         D: Domain<F, RATE>,
         const T: usize,
         const RATE: usize,
-    > Hash<'v, F, PoseidonChip, S, D, T, RATE>
+        const L: usize,
+    > Hash<'v, F, PoseidonChip, S, D, T, RATE, L>
 {
     /// Initializes a new hasher.
-    pub fn init(chip: PoseidonChip, layouter: impl Layouter<F>) -> Result<Self, Error> {
-        Sponge::new(chip, layouter).map(|sponge| Hash { sponge })
-    }
-}
-
-impl<
-        'v,
-        F: FieldExt,
-        PoseidonChip: PoseidonSpongeInstructions<'v, F, S, ConstantLength<L>, T, RATE>,
-        S: Spec<F, T, RATE>,
-        const T: usize,
-        const RATE: usize,
-        const L: usize,
-    > Hash<'v, F, PoseidonChip, S, ConstantLength<L>, T, RATE>
-{
-    /// Hashes the given input.
     pub fn hash(
-        mut self,
-        mut layouter: impl Layouter<F>,
+        chip: PoseidonChip,
         message: [PoseidonAssignedValue<'v, F>; L],
+        mut layouter: impl Layouter<F>,
     ) -> Result<PoseidonAssignedValue<'v, F>, Error> {
+        let mut sponge = Sponge::new(chip, layouter)?;
+
         for (i, value) in message
             .into_iter()
             .map(PaddedWord::Message)
             .chain(<ConstantLength<L> as Domain<F, RATE>>::padding(L).map(PaddedWord::Padding))
             .enumerate()
         {
-            self.sponge
-                .absorb(layouter.namespace(|| format!("absorb_{i}")), value)?;
+            sponge.absorb(layouter.namespace(|| format!("absorb_{i}")), value)?;
         }
-        self.sponge
+        sponge
             .finish_absorbing(layouter.namespace(|| "finish absorbing"))?
             .squeeze(layouter.namespace(|| "squeeze"))
     }

@@ -876,11 +876,11 @@ mod tests {
                 },
             )?;
 
-            let hasher = Hash::<_, _, S, ConstantLength<L>, WIDTH, RATE>::init(
-                chip,
+            let output = Hash::<_, _, S, ConstantLength<L>, WIDTH, RATE, L>::hash(
+            chip,
+            message,
                 layouter.namespace(|| "init"),
             )?;
-            let output = hasher.hash(layouter.namespace(|| "hash"), message)?;
 
             layouter.assign_region(
                 || "constrain output",
