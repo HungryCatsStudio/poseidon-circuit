@@ -251,14 +251,6 @@ impl<
                     return Ok(inner.into());
                 }
             }
-
-            // We've already squeezed out all available elements
-            self.mode = poseidon_sponge(
-                &self.chip,
-                layouter.namespace(|| "PoseidonSponge"),
-                &mut self.state,
-                None,
-            )?;
         }
     }
 }
