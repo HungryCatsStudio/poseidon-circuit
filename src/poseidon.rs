@@ -172,22 +172,6 @@ impl<
         const RATE: usize,
     > Sponge<'v, F, PoseidonChip, S, Absorbing<PaddedWord<'v, F>, RATE>, D, T, RATE>
 {
-    /// Constructs a new duplex sponge for the given Poseidon specification.
-    pub fn new(chip: PoseidonChip, mut layouter: impl Layouter<F>) -> Result<Self, Error> {
-        chip.initial_state(&mut layouter).map(|state| Sponge {
-            chip,
-            mode: Absorbing(
-                (0..RATE)
-                    .map(|_| None)
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap(),
-            ),
-            state,
-            _marker: PhantomData::default(),
-        })
-    }
-
     /// Absorbs an element into the sponge.
     pub fn absorb(
         &mut self,
@@ -295,7 +279,21 @@ impl<
         message: [PoseidonAssignedValue<'v, F>; L],
         mut layouter: impl Layouter<F>,
     ) -> Result<PoseidonAssignedValue<'v, F>, Error> {
-        let mut sponge = Sponge::new(chip, layouter)?;
+        let mut layouter = layouter;
+        let initial_state = chip.initial_state(&mut layouter)?;
+
+        let mut sponge = Sponge {
+            chip,
+            mode: Absorbing(
+                (0..RATE)
+                    .map(|_| None)
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
+            ),
+            state: initial_state,
+            _marker: PhantomData::default(),
+        };
 
         for (i, value) in message
             .into_iter()
