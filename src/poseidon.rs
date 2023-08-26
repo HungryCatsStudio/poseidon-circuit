@@ -60,7 +60,7 @@ pub trait PoseidonInstructions<
     fn permute(
         &self,
         layouter: &mut impl Layouter<F>,
-        initial_states: &State<Self::Word, T>,
+        initial_states: &'v State<Self::Word, T>,
     ) -> Result<State<Self::Word, T>, Error>;
 }
 
@@ -76,15 +76,12 @@ pub trait PoseidonSpongeInstructions<
     const RATE: usize,
 >: PoseidonInstructions<'v, F, S, T, RATE>
 {
-    /// Returns the initial empty state for the given domain.
-    fn initial_state(&self, layouter: &mut impl Layouter<F>)
-        -> Result<State<Self::Word, T>, Error>;
-
     /// Adds the given input to the state.
     fn add_input(
         &self,
         layouter: &mut impl Layouter<F>,
         initial_state: &State<Self::Word, T>,
+        is_first: bool,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, T>, Error>;
 
@@ -125,25 +122,6 @@ impl<
     }
 }
 
-fn poseidon_sponge<
-    'v,
-    F: FieldExt,
-    PoseidonChip: PoseidonSpongeInstructions<'v, F, S, D, T, RATE>,
-    S: Spec<F, T, RATE>,
-    D: Domain<F, RATE>,
-    const T: usize,
-    const RATE: usize,
->(
-    chip: &PoseidonChip,
-    mut layouter: impl Layouter<F>,
-    state: &mut State<PoseidonChip::Word, T>,
-    input: &Absorbing<PaddedWord<F>, RATE>,
-) -> Result<Squeezing<PoseidonChip::Word, RATE>, Error> {
-    *state = chip.add_input(&mut layouter, state, input)?;
-    *state = chip.permute(&mut layouter, state)?;
-    Ok(PoseidonChip::get_output(state))
-}
-
 /// A Poseidon sponge.
 #[derive(Debug)]
 pub struct Sponge<
@@ -178,23 +156,8 @@ impl<
         mut layouter: impl Layouter<F>,
         value: PaddedWord<F>,
     ) -> Result<(), Error> {
-        for entry in self.mode.0.iter_mut() {
-            if entry.is_none() {
-                *entry = Some(value);
-                return Ok(());
-            }
-        }
-
         // We've already absorbed as many elements as we can
-        let _ = poseidon_sponge(
-            &self.chip,
-            layouter.namespace(|| "PoseidonSponge"),
-            &mut self.state,
-            &self.mode,
-        )?;
-        self.mode = Absorbing::init_with(value);
-
-        Ok(())
+        unimplemented!()
     }
 
     /// Transitions the sponge into its squeezing state.
@@ -206,19 +169,7 @@ impl<
         Sponge<'v, F, PoseidonChip, S, Squeezing<PoseidonChip::Word, RATE>, D, T, RATE>,
         Error,
     > {
-        let mode = poseidon_sponge(
-            &self.chip,
-            layouter.namespace(|| "PoseidonSponge"),
-            &mut self.state,
-            &self.mode,
-        )?;
-
-        Ok(Sponge {
-            chip: self.chip,
-            mode,
-            state: self.state,
-            _marker: PhantomData::default(),
-        })
+        unimplemented!()
     }
 }
 
@@ -280,7 +231,6 @@ impl<
         mut layouter: impl Layouter<F>,
     ) -> Result<PoseidonAssignedValue<'v, F>, Error> {
         let mut layouter = layouter;
-        let initial_state = chip.initial_state(&mut layouter)?;
 
         let mut sponge = Sponge {
             chip,
@@ -291,11 +241,11 @@ impl<
                     .try_into()
                     .unwrap(),
             ),
-            state: initial_state,
+            state: vec![].try_into().unwrap(),
             _marker: PhantomData::default(),
         };
 
-        for (i, value) in message
+        'outer: for (i, value) in message
             .into_iter()
             .map(PaddedWord::Message)
             .chain(<ConstantLength<L> as Domain<F, RATE>>::padding(L).map(PaddedWord::Padding))
@@ -305,7 +255,7 @@ impl<
             for entry in sponge.mode.0.iter_mut() {
                 if entry.is_none() {
                     *entry = Some(value);
-                    continue;
+                    continue 'outer;
                 }
             }
 
@@ -314,7 +264,7 @@ impl<
             let mut layouter = layouter.namespace(|| "PoseidonSponge");
             let state: &mut State<PoseidonChip::Word, T> = &mut sponge.state;
             let input: &Absorbing<PaddedWord<F>, RATE> = &sponge.mode;
-            *state = chip.add_input(&mut layouter, state, input)?;
+            *state = chip.add_input(&mut layouter, state, i == 0, input)?;
             *state = chip.permute(&mut layouter, state)?;
 
             sponge.mode = Absorbing::init_with(value);
@@ -327,7 +277,7 @@ impl<
             let mut layouter = layouter.namespace(|| "PoseidonSponge");
             let state: &mut State<PoseidonChip::Word, T> = &mut sponge.state;
             let input: &Absorbing<PaddedWord<F>, RATE> = &sponge.mode;
-            *state = chip.add_input(&mut layouter, state, input)?;
+            *state = chip.add_input(&mut layouter, state, false, input)?;
             *state = chip.permute(&mut layouter, state)?;
             PoseidonChip::get_output(state)
         };

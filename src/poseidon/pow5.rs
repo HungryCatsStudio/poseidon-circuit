@@ -1,12 +1,17 @@
 use std::convert::TryInto;
 use std::iter;
 
-use halo2_base::{halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
-    plonk::{Advice, Any, Assigned, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
-    poly::Rotation,
-}, utils::value_to_option};
+use halo2_base::{
+    halo2_proofs::{
+        arithmetic::FieldExt,
+        circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
+        plonk::{
+            Advice, Any, Assigned, Column, ConstraintSystem, Error, Expression, Fixed, Selector,
+        },
+        poly::Rotation,
+    },
+    utils::value_to_option,
+};
 
 use super::{
     primitives::{Absorbing, Domain, Mds, Spec, Squeezing, State},
@@ -278,7 +283,7 @@ impl<'v, F: FieldExt, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: u
     fn permute(
         &self,
         layouter: &mut impl Layouter<F>,
-        initial_state: &State<Self::Word, WIDTH>,
+        initial_state: &'v State<Self::Word, WIDTH>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
 
@@ -345,44 +350,11 @@ impl<
         const RATE: usize,
     > PoseidonSpongeInstructions<'v, F, S, D, WIDTH, RATE> for Pow5Chip<F, WIDTH, RATE>
 {
-    fn initial_state(
-        &self,
-        layouter: &mut impl Layouter<F>,
-    ) -> Result<State<Self::Word, WIDTH>, Error> {
-        let config = self.config();
-        let state = layouter.assign_region(
-            || format!("initial state for domain {}", D::name()),
-            |mut region| {
-                let mut state = Vec::with_capacity(WIDTH);
-                let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
-                    let var  = region.assign_advice_from_constant(
-                        || format!("state_{i}"),
-                        config.state[i],
-                        0,
-                        value,
-                    )?;
-
-                    state.push(StateWord(var));
-
-                    Ok(())
-                };
-
-                for i in 0..RATE {
-                    load_state_word(i, F::zero())?;
-                }
-                load_state_word(RATE, D::initial_capacity_element())?;
-
-                Ok(state)
-            },
-        )?;
-
-        Ok(state.try_into().unwrap())
-    }
-
     fn add_input(
         &self,
         layouter: &mut impl Layouter<F>,
         initial_state: &State<Self::Word, WIDTH>,
+        is_first: bool,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
@@ -391,37 +363,70 @@ impl<
             |mut region| {
                 config.s_pad_and_add.enable(&mut region, 1)?;
 
-                // Load the initial state into this region.
-                let load_state_word = |i: usize| {
-                    initial_state[i]
-                        .0
-                        .copy_advice(&mut region, config.state[i], 0)
+                let values = if is_first {
+                    // Load the initial state into this region.
+                    let load_state_word = |i: usize| {
+                        initial_state[i]
+                            .0
+                            .copy_advice(&mut region, config.state[i], 0)
+                    };
+                    let initial_state: Vec<_> = (0..WIDTH)
+                        .map(load_state_word)
+                        .map(|w| {
+                            let tv = StateWord(w);
+                            tv.value()
+                        })
+                        .collect();
+                    initial_state
+                } else {
+                    let mut load_state_word = |i: usize, value: F| {
+                        let var = region.assign_advice_from_constant(
+                            || format!("state_{i}"),
+                            config.state[i],
+                            0,
+                            value,
+                        );
+                    };
+                    for i in 0..RATE {
+                        load_state_word(i, F::zero());
+                    }
+                    load_state_word(RATE, D::initial_capacity_element());
+
+                    let mut v = vec![Value::known(F::zero()); RATE];
+                    v.push(Value::known(D::initial_capacity_element()));
+                    v
                 };
-                let initial_state: Vec<_> =
-                    (0..WIDTH).map(load_state_word).map(StateWord).collect();
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
-                    let constraint_var = match input.0[i].clone() {
-                        Some(PaddedWord::Message(word)) => word,
+                    let value = match input.0[i].clone() {
+                        Some(PaddedWord::Message(word)) => {
+                            word.copy_advice(&mut region, config.state[i], 1);
+                            StateWord(word).value()
+                        }
                         Some(PaddedWord::Padding(padding_value)) => {
-                            unimplemented!()
+                            todo!("assign fixed as below");
                             // region.assign_fixed(config.rc_b[i], 1, Value::known(padding_value))
+                            Value::known(padding_value)
                         }
                         _ => panic!("Input is not padded"),
                     };
-                    constraint_var.copy_advice(&mut region, config.state[i], 1)
+                    value
                 };
-                let input: Vec<_> = (0..RATE).map(load_input_word).map(StateWord).collect();
-                // let input = input?;
+                let input: Vec<Value<F>> = (0..RATE).map(load_input_word).collect();
+                // .map(|w| {
+                //     let tv = StateWord(w);
+                //     tv.value()
+                // })
+                // .collect();
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
                     region.assign_advice(config.state[i], 2, {
                         if let Some(inp) = input.get(i) {
-                            initial_state[i].value() + inp.value()
+                            values[i] + inp
                         } else {
-                            initial_state[i].value()
+                            values[i]
                         }
                     })
                 };
@@ -453,7 +458,7 @@ pub struct StateWord<'v, F: FieldExt>(pub PoseidonAssignedValue<'v, F>);
 pub type PoseidonAssignedValue<'v, F> = AssignedCell<&'v Assigned<F>, F>;
 
 impl<'v, F: FieldExt> From<StateWord<'v, F>> for PoseidonAssignedValue<'v, F> {
-    fn from(state_word: StateWord<F>) -> PoseidonAssignedValue<'v, F> {
+    fn from(state_word: StateWord<'v, F>) -> PoseidonAssignedValue<'v, F> {
         state_word.0
     }
 }
@@ -470,7 +475,7 @@ impl<'v, F: FieldExt> Var<'v, F> for StateWord<'v, F> {
     }
 
     fn value(&self) -> Value<F> {
-        Value::known(extract_value(self.0).clone())
+        Value::known(extract_value(self.0.clone()))
     }
 }
 
@@ -598,11 +603,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
 
             // Load the second round constants.
             let mut load_round_constant = |i: usize| {
-                region.assign_fixed(
-                    config.rc_b[i],
-                    offset,
-                    config.round_constants[round + 1][i],
-                )
+                region.assign_fixed(config.rc_b[i], offset, config.round_constants[round + 1][i])
             };
             for i in 0..WIDTH {
                 load_round_constant(i);
@@ -634,7 +635,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
     fn load<const RATE: usize>(
         region: &mut Region<F>,
         config: &Pow5Config<F, WIDTH, RATE>,
-        initial_state: &State<StateWord<F>, WIDTH>,
+        initial_state: &'v State<StateWord<F>, WIDTH>,
     ) -> Result<Self, Error> {
         let load_state_word = |i: usize| initial_state[i].0.copy_advice(region, config.state[i], 0);
 
@@ -655,11 +656,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
 
         // Load the round constants.
         let mut load_round_constant = |i: usize| {
-            region.assign_fixed(
-                config.rc_a[i],
-                offset,
-                config.round_constants[round][i],
-            )
+            region.assign_fixed(config.rc_a[i], offset, config.round_constants[round][i])
         };
         for i in 0..WIDTH {
             load_round_constant(i);
@@ -863,11 +860,11 @@ mod tests {
                         region.assign_advice(
                             config.state[i % WIDTH],
                             i / WIDTH,
-                        if let Some(v) = value {
+                            if let Some(v) = value {
                                 Value::known(v)
                             } else {
                                 Value::unknown()
-                            }
+                            },
                         )
                     };
 
@@ -877,8 +874,8 @@ mod tests {
             )?;
 
             let output = Hash::<_, _, S, ConstantLength<L>, WIDTH, RATE, L>::hash(
-            chip,
-            message,
+                chip,
+                message,
                 layouter.namespace(|| "init"),
             )?;
 
@@ -892,7 +889,7 @@ mod tests {
                             Value::known(v)
                         } else {
                             Value::unknown()
-                        }
+                        },
                     );
                     region.constrain_equal(output.cell(), expected_var.cell());
                     Ok(())
