@@ -1,12 +1,17 @@
 use std::convert::TryInto;
 use std::iter;
 
-use halo2_base::{halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
-    plonk::{Advice, Any, Assigned, Column, ConstraintSystem, Error, Expression, Fixed, Selector},
-    poly::Rotation,
-}, utils::value_to_option};
+use halo2_base::{
+    halo2_proofs::{
+        arithmetic::FieldExt,
+        circuit::{AssignedCell, Cell, Chip, Layouter, Region, Value},
+        plonk::{
+            Advice, Any, Assigned, Column, ConstraintSystem, Error, Expression, Fixed, Selector,
+        },
+        poly::Rotation,
+    },
+    utils::value_to_option,
+};
 
 use super::{
     primitives::{Absorbing, Domain, Mds, Spec, Squeezing, State},
@@ -355,12 +360,7 @@ impl<
             |mut region| {
                 let mut state = Vec::with_capacity(WIDTH);
                 let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
-                    let var  = region.assign_advice_from_constant(
-                        || format!("state_{i}"),
-                        config.state[i],
-                        0,
-                        value,
-                    )?;
+                    let var = region.assign_advice(config.state[i], 0, Value::known(value));
 
                     state.push(StateWord(var));
 
@@ -376,6 +376,9 @@ impl<
             },
         )?;
 
+        // let state: State<Self::Word, WIDTH> = (0..WIDTH).map(|_| Self::Word::default()).collect().try_into().unwrap();
+        // // Ok([Self::Word::default(); WIDTH])
+        // Ok(state)
         Ok(state.try_into().unwrap())
     }
 
@@ -383,6 +386,7 @@ impl<
         &self,
         layouter: &mut impl Layouter<F>,
         initial_state: &State<Self::Word, WIDTH>,
+        is_first: bool,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
@@ -392,13 +396,36 @@ impl<
                 config.s_pad_and_add.enable(&mut region, 1)?;
 
                 // Load the initial state into this region.
-                let load_state_word = |i: usize| {
-                    initial_state[i]
-                        .0
-                        .copy_advice(&mut region, config.state[i], 0)
+                let initial_state = if is_first {
+                    let mut state = Vec::with_capacity(WIDTH);
+                    let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
+                        let var = region.assign_advice_from_constant(
+                            || format!("state_{i}"),
+                            config.state[i],
+                            0,
+                            value,
+                        )?;
+                        state.push(Value::known(value));
+                        Ok(())
+                    };
+
+                    for i in 0..RATE {
+                        load_state_word(i, F::zero())?;
+                    }
+                    load_state_word(RATE, D::initial_capacity_element())?;
+                    state
+                } else {
+                    let load_state_word = |i: usize| {
+                        StateWord(
+                            initial_state[i]
+                                .0
+                                .copy_advice(&mut region, config.state[i], 0),
+                        )
+                        .value()
+                    };
+                    let initial_state: Vec<Value<F>> = (0..WIDTH).map(load_state_word).collect();
+                    initial_state
                 };
-                let initial_state: Vec<_> =
-                    (0..WIDTH).map(load_state_word).map(StateWord).collect();
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
@@ -419,9 +446,9 @@ impl<
                 let constrain_output_word = |i: usize| {
                     region.assign_advice(config.state[i], 2, {
                         if let Some(inp) = input.get(i) {
-                            initial_state[i].value() + inp.value()
+                            initial_state[i] + inp.value()
                         } else {
-                            initial_state[i].value()
+                            initial_state[i]
                         }
                     })
                 };
@@ -598,11 +625,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
 
             // Load the second round constants.
             let mut load_round_constant = |i: usize| {
-                region.assign_fixed(
-                    config.rc_b[i],
-                    offset,
-                    config.round_constants[round + 1][i],
-                )
+                region.assign_fixed(config.rc_b[i], offset, config.round_constants[round + 1][i])
             };
             for i in 0..WIDTH {
                 load_round_constant(i);
@@ -636,7 +659,14 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
         config: &Pow5Config<F, WIDTH, RATE>,
         initial_state: &State<StateWord<F>, WIDTH>,
     ) -> Result<Self, Error> {
-        let load_state_word = |i: usize| initial_state[i].0.copy_advice(region, config.state[i], 0);
+        let load_state_word = |i: usize| {
+            // let ref this = initial_state[i].0;
+            let column = config.state[i];
+            let assigned_cell =
+                region.assign_advice(column, 0, initial_state[i].0.value().map(|v| *v));
+            region.constrain_equal(&assigned_cell.cell(), &initial_state[i].0.cell());
+            assigned_cell
+        };
 
         let state: Vec<_> = (0..WIDTH).map(load_state_word).map(StateWord).collect();
         Ok(Pow5State(state.try_into().unwrap()))
@@ -655,11 +685,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
 
         // Load the round constants.
         let mut load_round_constant = |i: usize| {
-            region.assign_fixed(
-                config.rc_a[i],
-                offset,
-                config.round_constants[round][i],
-            )
+            region.assign_fixed(config.rc_a[i], offset, config.round_constants[round][i])
         };
         for i in 0..WIDTH {
             load_round_constant(i);
@@ -760,11 +786,11 @@ mod tests {
                         region.assign_advice(
                             config.state[i % WIDTH],
                             i / WIDTH,
-                        if let Some(v) = value {
+                            if let Some(v) = value {
                                 Value::known(v)
                             } else {
                                 Value::unknown()
-                            }
+                            },
                         )
                     };
 
@@ -789,7 +815,7 @@ mod tests {
                             Value::known(v)
                         } else {
                             Value::unknown()
-                        }
+                        },
                     );
                     region.constrain_equal(output.cell(), expected_var.cell());
                     Ok(())
