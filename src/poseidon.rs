@@ -60,7 +60,7 @@ pub trait PoseidonInstructions<
     fn permute(
         &self,
         layouter: &mut impl Layouter<F>,
-        initial_states: &'v State<Self::Word, T>,
+        initial_states: &State<Self::Word, T>,
     ) -> Result<State<Self::Word, T>, Error>;
 }
 

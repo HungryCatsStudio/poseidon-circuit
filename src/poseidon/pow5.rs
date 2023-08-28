@@ -283,7 +283,7 @@ impl<'v, F: FieldExt, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: u
     fn permute(
         &self,
         layouter: &mut impl Layouter<F>,
-        initial_state: &'v State<Self::Word, WIDTH>,
+        initial_state: &State<Self::Word, WIDTH>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
 
@@ -291,7 +291,7 @@ impl<'v, F: FieldExt, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: u
             || "permute state",
             |mut region| {
                 // Load the initial state into this region.
-                let state = Pow5State::load(&mut region, config, initial_state)?;
+                let state = Pow5State::load(&mut region, config, &initial_state)?;
 
                 let state = (0..config.half_full_rounds).fold(Ok(state), |res, r| {
                     res.and_then(|state| state.full_round(&mut region, config, r, r))
@@ -635,11 +635,22 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
     fn load<const RATE: usize>(
         region: &mut Region<F>,
         config: &Pow5Config<F, WIDTH, RATE>,
-        initial_state: &'v State<StateWord<F>, WIDTH>,
+        initial_state: &State<StateWord<'v, F>, WIDTH>,
     ) -> Result<Self, Error> {
-        let load_state_word = |i: usize| initial_state[i].0.copy_advice(region, config.state[i], 0);
+        let state: Vec<_> = (0..WIDTH)
+            .map(|i| {
+                let assigned_cell: AssignedCell<&'v Assigned<F>, F> =
+                    region.assign_advice(config.state[i], 0, initial_state[i].value());
+                region.constrain_equal(&assigned_cell.cell(), &initial_state[i].cell());
+                // assigned_cell
 
-        let state: Vec<_> = (0..WIDTH).map(load_state_word).map(StateWord).collect();
+                // let load_state_word: AssignedCell<&'v Assigned<F>, F> = initial_state[i].0.copy_advice(region, config.state[i], 0);
+                StateWord(assigned_cell)
+            })
+            .collect();
+        // let load_state_word = |i: usize| initial_state[i].0.copy_advice(region, config.state[i], 0);
+
+        //let state: Vec<_> = (0..WIDTH).map(load_state_word).map(StateWord).collect();
         Ok(Pow5State(state.try_into().unwrap()))
     }
 
