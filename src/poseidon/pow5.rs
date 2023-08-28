@@ -382,6 +382,9 @@ impl<
             },
         )?;
 
+        // let state: State<Self::Word, WIDTH> = (0..WIDTH).map(|_| Self::Word::default()).collect().try_into().unwrap();
+        // // Ok([Self::Word::default(); WIDTH])
+        // Ok(state)
         Ok(state.try_into().unwrap())
     }
 
@@ -389,6 +392,7 @@ impl<
         &self,
         layouter: &mut impl Layouter<F>,
         initial_state: &State<Self::Word, WIDTH>,
+        is_first: bool,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
@@ -398,20 +402,40 @@ impl<
                 config.s_pad_and_add.enable(&mut region, 1)?;
 
                 // Load the initial state into this region.
-                let load_state_word = |i: usize| {
-                    initial_state[i]
-                        .0
-                        .copy_advice(
-                            || format!("load state_{i}"),
-                            &mut region,
+                let initial_state = if is_first {
+                    let mut state = Vec::with_capacity(WIDTH);
+                    let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
+                        let var = region.assign_advice_from_constant(
+                            || format!("state_{i}"),
                             config.state[i],
                             0,
-                        )
-                        .map(StateWord)
+                            value,
+                        )?;
+                        state.push(StateWord(var));
+                        Ok(())
+                    };
+
+                    for i in 0..RATE {
+                        load_state_word(i, F::zero())?;
+                    }
+                    load_state_word(RATE, D::initial_capacity_element())?;
+                    state
+                } else {
+                    let load_state_word = |i: usize| {
+                        initial_state[i]
+                            .0
+                            .copy_advice(
+                                || format!("load state_{i}"),
+                                &mut region,
+                                config.state[i],
+                                0,
+                            )
+                            .map(StateWord)
+                    };
+                    let initial_state: Result<Vec<_>, Error> =
+                        (0..WIDTH).map(load_state_word).collect();
+                    initial_state?
                 };
-                let initial_state: Result<Vec<_>, Error> =
-                    (0..WIDTH).map(load_state_word).collect();
-                let initial_state = initial_state?;
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
