@@ -480,7 +480,7 @@ pub struct StateWord<'v, F: FieldExt>(pub PoseidonAssignedValue<'v, F>);
 pub type PoseidonAssignedValue<'v, F> = AssignedCell<&'v Assigned<F>, F>;
 
 impl<'v, F: FieldExt> From<StateWord<'v, F>> for PoseidonAssignedValue<'v, F> {
-    fn from(state_word: StateWord<F>) -> PoseidonAssignedValue<'v, F> {
+    fn from(state_word: StateWord<'v, F>) -> PoseidonAssignedValue<'v, F> {
         state_word.0
     }
 }
@@ -497,7 +497,7 @@ impl<'v, F: FieldExt> Var<'v, F> for StateWord<'v, F> {
     }
 
     fn value(&self) -> Value<F> {
-        Value::known(extract_value(self.0).clone())
+        Value::known(extract_value(self.0.clone()))
     }
 }
 
