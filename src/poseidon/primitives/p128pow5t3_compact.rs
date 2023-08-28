@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::arithmetic::FieldExt;
+use halo2_base::halo2_proofs::arithmetic::FieldExt;
 
 use super::p128pow5t3::P128Pow5T3Constants;
 use super::{Mds, Spec};
