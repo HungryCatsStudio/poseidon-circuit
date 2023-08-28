@@ -196,7 +196,7 @@ impl<
     pub fn absorb(
         &mut self,
         mut layouter: impl Layouter<F>,
-        value: PaddedWord<F>,
+        value: PaddedWord<'v, F>,
     ) -> Result<(), Error> {
         for entry in self.mode.0.iter_mut() {
             if entry.is_none() {

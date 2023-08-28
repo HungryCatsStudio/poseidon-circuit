@@ -429,24 +429,44 @@ impl<
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
-                    let constraint_var = match input.0[i].clone() {
-                        Some(PaddedWord::Message(word)) => word,
+                    let value = match input.0[i].clone() {
+                        Some(PaddedWord::Message(word)) => {
+                            word.copy_advice(&mut region, config.state[i], 1);
+                            StateWord(word).value()
+                        }
                         Some(PaddedWord::Padding(padding_value)) => {
-                            unimplemented!()
-                            // region.assign_fixed(config.rc_b[i], 1, Value::known(padding_value))
+                            // todo!("assign fixed as below");
+                            let cell = region.assign_fixed(config.rc_b[i], 1, padding_value);
+                            let val = Value::known(padding_value);
+                            let assigned_cell = region.assign_advice(config.state[i], 1, val);
+                            region.constrain_equal(&assigned_cell.cell(), &cell);
+                            val
                         }
                         _ => panic!("Input is not padded"),
                     };
-                    constraint_var.copy_advice(&mut region, config.state[i], 1)
+                    value
                 };
-                let input: Vec<_> = (0..RATE).map(load_input_word).map(StateWord).collect();
+                let input: Vec<Value<F>> = (0..RATE).map(load_input_word).collect();
+                
+                // let load_input_word = |i: usize| {
+                //     let constraint_var: AssignedCell<&Assigned<F>, F> = match input.0[i].clone() {
+                //         Some(PaddedWord::Message(word)) => word,
+                //         Some(PaddedWord::Padding(padding_value)) => {
+                //             // unimplemented!()
+                //             region.assign_fixed(config.rc_b[i], 1, Value::known(padding_value))
+                //         }
+                //         _ => panic!("Input is not padded"),
+                //     };
+                //     constraint_var.copy_advice(&mut region, config.state[i], 1)
+                // };
+                // let input: Vec<_> = (0..RATE).map(load_input_word).map(StateWord).collect();
                 // let input = input?;
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
                     region.assign_advice(config.state[i], 2, {
                         if let Some(inp) = input.get(i) {
-                            initial_state[i] + inp.value()
+                            initial_state[i] + inp
                         } else {
                             initial_state[i]
                         }
@@ -529,8 +549,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
             let r: Vec<Value<F>> = q
                 .map(|q| {
                     q.map(|q| {
-                        // q.pow(&config.alpha)
-                        unimplemented!()
+                        q.pow(&config.alpha)
                     })
                 })
                 .collect();
@@ -569,8 +588,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
                         word.value()
                             .map(|v| v + config.round_constants[round][idx])
                             .map(|v| {
-                                unimplemented!()
-                                // if idx == 0 { v.pow(&config.alpha) } else { v }
+                                if idx == 0 { v.pow(&config.alpha) } else { v }
                             })
                     })
                     .collect();
@@ -601,8 +619,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
             let p: Vec<_> = self.0.iter().map(|word| word.value()).collect();
 
             let r_0 = (p[0] + Value::known(config.round_constants[round][0])).map(|v| {
-                // v.pow(&config.alpha)
-                unimplemented!()
+                v.pow(&config.alpha)
             });
             let r_i = p[1..]
                 .iter()
