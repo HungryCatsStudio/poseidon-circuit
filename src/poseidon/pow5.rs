@@ -353,8 +353,7 @@ impl<
     fn add_input(
         &self,
         layouter: &mut impl Layouter<F>,
-        initial_state: &State<Self::Word, WIDTH>,
-        is_first: bool,
+        initial_state: &Option<State<Self::Word, WIDTH>>,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
@@ -363,38 +362,41 @@ impl<
             |mut region| {
                 config.s_pad_and_add.enable(&mut region, 1)?;
 
-                let values = if is_first {
-                    // Load the initial state into this region.
-                    let load_state_word = |i: usize| {
-                        initial_state[i]
-                            .0
-                            .copy_advice(&mut region, config.state[i], 0)
-                    };
-                    let initial_state: Vec<_> = (0..WIDTH)
-                        .map(load_state_word)
-                        .map(|w| {
-                            let tv = StateWord(w);
-                            tv.value()
-                        })
-                        .collect();
-                    initial_state
-                } else {
-                    let mut load_state_word = |i: usize, value: F| {
-                        let var = region.assign_advice_from_constant(
-                            || format!("state_{i}"),
-                            config.state[i],
-                            0,
-                            value,
-                        );
-                    };
-                    for i in 0..RATE {
-                        load_state_word(i, F::zero());
+                let values = match initial_state {
+                    Some(initial_state) => {
+                        // Load the initial state into this region.
+                        let load_state_word = |i: usize| {
+                            initial_state[i]
+                                .0
+                                .copy_advice(&mut region, config.state[i], 0)
+                        };
+                        let initial_state: Vec<_> = (0..WIDTH)
+                            .map(load_state_word)
+                            .map(|w| {
+                                let tv = StateWord(w);
+                                tv.value()
+                            })
+                            .collect();
+                        initial_state
                     }
-                    load_state_word(RATE, D::initial_capacity_element());
+                    None => {
+                        let mut load_state_word = |i: usize, value: F| {
+                            let var = region.assign_advice_from_constant(
+                                || format!("state_{i}"),
+                                config.state[i],
+                                0,
+                                value,
+                            );
+                        };
+                        for i in 0..RATE {
+                            load_state_word(i, F::zero());
+                        }
+                        load_state_word(RATE, D::initial_capacity_element());
 
-                    let mut v = vec![Value::known(F::zero()); RATE];
-                    v.push(Value::known(D::initial_capacity_element()));
-                    v
+                        let mut v = vec![Value::known(F::zero()); RATE];
+                        v.push(Value::known(D::initial_capacity_element()));
+                        v
+                    }
                 };
 
                 // Load the input into this region.
@@ -405,8 +407,8 @@ impl<
                             StateWord(word).value()
                         }
                         Some(PaddedWord::Padding(padding_value)) => {
-                            todo!("assign fixed as below");
-                            // region.assign_fixed(config.rc_b[i], 1, Value::known(padding_value))
+                            // todo!("assign fixed as below");
+                            region.assign_fixed(config.rc_b[i], 1, padding_value);
                             Value::known(padding_value)
                         }
                         _ => panic!("Input is not padded"),
@@ -504,14 +506,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
                 self.0.iter().enumerate().map(|(idx, word)| {
                     word.value() + Value::known(config.round_constants[round][idx])
                 });
-            let r: Vec<Value<F>> = q
-                .map(|q| {
-                    q.map(|q| {
-                        // q.pow(&config.alpha)
-                        unimplemented!()
-                    })
-                })
-                .collect();
+            let r: Vec<Value<F>> = q.map(|q| q.map(|q| q.pow(&config.alpha))).collect();
             let m = &config.m_reg;
             let state = m.iter().map(|m_i| {
                 r.iter()
@@ -546,10 +541,7 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
                     .map(|(idx, word)| {
                         word.value()
                             .map(|v| v + config.round_constants[round][idx])
-                            .map(|v| {
-                                unimplemented!()
-                                // if idx == 0 { v.pow(&config.alpha) } else { v }
-                            })
+                            .map(|v| if idx == 0 { v.pow(&config.alpha) } else { v })
                     })
                     .collect();
 
@@ -578,10 +570,8 @@ impl<'v, F: FieldExt, const WIDTH: usize> Pow5State<'v, F, WIDTH> {
             let m = &config.m_reg;
             let p: Vec<_> = self.0.iter().map(|word| word.value()).collect();
 
-            let r_0 = (p[0] + Value::known(config.round_constants[round][0])).map(|v| {
-                // v.pow(&config.alpha)
-                unimplemented!()
-            });
+            let r_0 = (p[0] + Value::known(config.round_constants[round][0]))
+                .map(|v| v.pow(&config.alpha));
             let r_i = p[1..]
                 .iter()
                 .enumerate()
