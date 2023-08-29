@@ -89,7 +89,7 @@ pub trait PoseidonSpongeInstructions<
         &self,
         layouter: &mut impl Layouter<F>,
         initial_state: &State<Self::Word, T>,
-        is_first: bool,
+        has_absorbed: bool,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, T>, Error>;
 
@@ -139,11 +139,11 @@ fn poseidon_sponge<
     chip: &PoseidonChip,
     mut layouter: impl Layouter<F>,
     state: &mut State<PoseidonChip::Word, T>,
-    is_first: bool,
+    has_absorbed: bool,
     input: Option<&Absorbing<PaddedWord<F>, RATE>>,
 ) -> Result<Squeezing<PoseidonChip::Word, RATE>, Error> {
     if let Some(input) = input {
-        *state = chip.add_input(&mut layouter, state, is_first, input)?;
+        *state = chip.add_input(&mut layouter, state, has_absorbed, input)?;
     }
     *state = chip.permute(&mut layouter, state)?;
     Ok(PoseidonChip::get_output(state))
@@ -215,6 +215,7 @@ impl<
             Some(&self.mode),
         )?;
         self.has_absorbed = true;
+
         self.mode = Absorbing::init_with(value);
 
         Ok(())
@@ -231,7 +232,7 @@ impl<
             &self.chip,
             layouter.namespace(|| "PoseidonSponge"),
             &mut self.state,
-            false,
+            true,
             Some(&self.mode),
         )?;
 
