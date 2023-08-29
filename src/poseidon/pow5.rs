@@ -386,7 +386,7 @@ impl<
         &self,
         layouter: &mut impl Layouter<F>,
         initial_state: &State<Self::Word, WIDTH>,
-        is_first: bool,
+        has_absorbed: bool,
         input: &Absorbing<PaddedWord<F>, RATE>,
     ) -> Result<State<Self::Word, WIDTH>, Error> {
         let config = self.config();
@@ -396,7 +396,18 @@ impl<
                 config.s_pad_and_add.enable(&mut region, 1)?;
 
                 // Load the initial state into this region.
-                let initial_state = if is_first {
+                let initial_state = if has_absorbed {
+                    let load_state_word = |i: usize| {
+                        StateWord(
+                            initial_state[i]
+                                .0
+                                .copy_advice(&mut region, config.state[i], 0),
+                        )
+                        .value()
+                    };
+                    let initial_state: Vec<Value<F>> = (0..WIDTH).map(load_state_word).collect();
+                    initial_state
+                } else {
                     let mut state = Vec::with_capacity(WIDTH);
                     let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
                         let var = region.assign_advice_from_constant(
@@ -414,17 +425,6 @@ impl<
                     }
                     load_state_word(RATE, D::initial_capacity_element())?;
                     state
-                } else {
-                    let load_state_word = |i: usize| {
-                        StateWord(
-                            initial_state[i]
-                                .0
-                                .copy_advice(&mut region, config.state[i], 0),
-                        )
-                        .value()
-                    };
-                    let initial_state: Vec<Value<F>> = (0..WIDTH).map(load_state_word).collect();
-                    initial_state
                 };
 
                 // Load the input into this region.
