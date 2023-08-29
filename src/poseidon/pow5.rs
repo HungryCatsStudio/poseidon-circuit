@@ -429,7 +429,7 @@ impl<
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
-                    let value = match input.0[i].clone() {
+                    match input.0[i].clone() {
                         Some(PaddedWord::Message(word)) => {
                             word.copy_advice(&mut region, config.state[i], 1);
                             StateWord(word).value()
@@ -443,24 +443,9 @@ impl<
                             val
                         }
                         _ => panic!("Input is not padded"),
-                    };
-                    value
+                    }
                 };
                 let input: Vec<Value<F>> = (0..RATE).map(load_input_word).collect();
-                
-                // let load_input_word = |i: usize| {
-                //     let constraint_var: AssignedCell<&Assigned<F>, F> = match input.0[i].clone() {
-                //         Some(PaddedWord::Message(word)) => word,
-                //         Some(PaddedWord::Padding(padding_value)) => {
-                //             // unimplemented!()
-                //             region.assign_fixed(config.rc_b[i], 1, Value::known(padding_value))
-                //         }
-                //         _ => panic!("Input is not padded"),
-                //     };
-                //     constraint_var.copy_advice(&mut region, config.state[i], 1)
-                // };
-                // let input: Vec<_> = (0..RATE).map(load_input_word).map(StateWord).collect();
-                // let input = input?;
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
@@ -866,14 +851,12 @@ mod tests {
         let message = [
             Fp::random(rng),
             Fp::random(rng),
-            Fp::random(rng),
-            Fp::random(rng),
         ];
         let output =
-            poseidon::Hash::<_, OrchardNullifier, ConstantLength<4>, 3, 2>::init().hash(message);
+            poseidon::Hash::<_, OrchardNullifier, ConstantLength<2>, 3, 2>::init().hash(message);
 
         let k = 7;
-        let circuit = HashCircuit::<OrchardNullifier, 3, 2, 4> {
+        let circuit = HashCircuit::<OrchardNullifier, 3, 2, 2> {
             message: Some(message),
             output: Some(output),
             _spec: PhantomData,
