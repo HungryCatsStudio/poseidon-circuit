@@ -232,7 +232,7 @@ impl<
             &self.chip,
             layouter.namespace(|| "PoseidonSponge"),
             &mut self.state,
-            false,
+            true,
             &self.mode,
         )?;
 
