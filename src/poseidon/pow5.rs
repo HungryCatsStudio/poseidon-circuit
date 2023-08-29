@@ -362,11 +362,11 @@ impl<
             |mut region| {
                 let mut state = Vec::with_capacity(WIDTH);
                 let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
-                    let var = region.assign_advice_from_constant(
+                    let var = region.assign_advice(
                         || format!("state_{i}"),
                         config.state[i],
                         0,
-                        value,
+                        || Value::known(value)
                     )?;
                     state.push(StateWord(var));
 
