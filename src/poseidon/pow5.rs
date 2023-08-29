@@ -402,21 +402,18 @@ impl<
                 config.s_pad_and_add.enable(&mut region, 1)?;
 
                 // Load the initial state into this region.
-                let initial_state = if has_absorbed {
+                let initial_state: Vec<Value<F>> = if has_absorbed {
                     let load_state_word = |i: usize| {
-                        initial_state[i]
-                            .0
-                            .copy_advice(
-                                || format!("load state_{i}"),
-                                &mut region,
-                                config.state[i],
-                                0,
-                            )
-                            .map(StateWord)
+                        StateWord(
+                            initial_state[i]
+                                .0
+                                .copy_advice(|| "dummy annotation", &mut region, config.state[i], 0).unwrap(),
+                        )
+                        .value()
                     };
-                    let initial_state: Result<Vec<_>, Error> =
+                    let initial_state: Vec<_> =
                         (0..WIDTH).map(load_state_word).collect();
-                    initial_state?
+                    initial_state
                 } else {
                     let mut state = Vec::with_capacity(WIDTH);
                     let mut load_state_word = |i: usize, value: F| -> Result<_, Error> {
@@ -426,7 +423,7 @@ impl<
                             0,
                             value,
                         )?;
-                        state.push(StateWord(var));
+                        state.push(Value::known(value));
                         Ok(())
                     };
 
@@ -439,27 +436,27 @@ impl<
 
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
-                    let constraint_var = match input.0[i].clone() {
-                        Some(PaddedWord::Message(word)) => word,
-                        Some(PaddedWord::Padding(padding_value)) => region.assign_fixed(
-                            || format!("load pad_{i}"),
-                            config.rc_b[i],
-                            1,
-                            || Value::known(padding_value),
-                        )?,
+                    match input.0[i].clone() {
+                        Some(PaddedWord::Message(word)) => {
+                            word.copy_advice(|| "dummy annotation", &mut region, config.state[i], 1).unwrap();
+                            StateWord(word).value()
+                        },
+                        Some(PaddedWord::Padding(padding_value)) => {
+                            let cell = region.assign_fixed(
+                                || format!("load pad_{i}"),
+                                config.rc_b[i],
+                                1,
+                                || Value::known(padding_value),
+                            ).unwrap();
+                            let val = Value::known(padding_value);
+                            let assigned_cell = region.assign_advice(|| "dummy annotation", config.state[i], 1, || val).unwrap();
+                            region.constrain_equal(assigned_cell.cell(), cell.cell()).unwrap();
+                            val
+                        },
                         _ => panic!("Input is not padded"),
-                    };
-                    constraint_var
-                        .copy_advice(
-                            || format!("load input_{i}"),
-                            &mut region,
-                            config.state[i],
-                            1,
-                        )
-                        .map(StateWord)
+                    }
                 };
-                let input: Result<Vec<_>, Error> = (0..RATE).map(load_input_word).collect();
-                let input = input?;
+                let input: Vec<_> = (0..RATE).map(load_input_word).collect();
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
@@ -470,9 +467,9 @@ impl<
                             2,
                             || {
                                 if let Some(inp) = input.get(i) {
-                                    initial_state[i].value() + inp.value()
+                                    initial_state[i] + inp
                                 } else {
-                                    initial_state[i].value()
+                                    initial_state[i]
                                 }
                             },
                         )
