@@ -851,12 +851,15 @@ mod tests {
         let message = [
             Fp::random(rng),
             Fp::random(rng),
+            Fp::random(rng),
+            Fp::random(rng),
+            Fp::random(rng),
         ];
         let output =
-            poseidon::Hash::<_, OrchardNullifier, ConstantLength<2>, 3, 2>::init().hash(message);
+            poseidon::Hash::<_, OrchardNullifier, ConstantLength<5>, 3, 2>::init().hash(message);
 
-        let k = 7;
-        let circuit = HashCircuit::<OrchardNullifier, 3, 2, 2> {
+        let k = 10;
+        let circuit = HashCircuit::<OrchardNullifier, 3, 2, 5> {
             message: Some(message),
             output: Some(output),
             _spec: PhantomData,
